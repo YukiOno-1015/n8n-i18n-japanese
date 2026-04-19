@@ -158,10 +158,18 @@ jobs:
                   set -euo pipefail
                   cp -r "$GITHUB_WORKSPACE/languages"/* "${{ steps.locales.outputs.dir }}/"
 
-                  if [[ "${{ steps.editorui.outputs.flag }}" == "new" ]]; then
-                    git -C "$GITHUB_WORKSPACE/n8n" apply "$GITHUB_WORKSPACE/fix_editor-ui.patch"
-                  else
-                    git -C "$GITHUB_WORKSPACE/n8n" apply "$GITHUB_WORKSPACE/fix_editor-ui.old.patch"
+                  patch_applied=false
+                  for patch in fix_editor-ui.patch fix_editor-ui.old.patch; do
+                    if git -C "$GITHUB_WORKSPACE/n8n" apply --check "$GITHUB_WORKSPACE/$patch" >/dev/null 2>&1; then
+                      git -C "$GITHUB_WORKSPACE/n8n" apply "$GITHUB_WORKSPACE/$patch"
+                      echo "Applied patch: $patch"
+                      patch_applied=true
+                      break
+                    fi
+                  done
+
+                  if [[ "$patch_applied" == "false" ]]; then
+                    echo "No compatible editor-ui patch found. Skip patch apply."
                   fi
 
             - name: Build editor-ui
