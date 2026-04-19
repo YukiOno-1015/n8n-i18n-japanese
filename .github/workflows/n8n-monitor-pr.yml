@@ -2,234 +2,250 @@
 name: n8n更新監視とPR作成
 
 "on":
-    schedule:
-        - cron: "0 * * * *"
-    workflow_dispatch:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
 
 permissions:
-    contents: write
-    pull-requests: write
+  contents: write
+  pull-requests: write
 
 jobs:
-    detect-and-pr:
-        runs-on: ubuntu-latest
+  detect-and-pr:
+    runs-on: ubuntu-latest
 
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
 
-            - name: Resolve latest n8n version tag
-              id: latest
-              run: |
-                  set -euo pipefail
+      - name: Resolve latest n8n version tag
+        id: latest
+        run: |
+          set -euo pipefail
 
-                  # Prefer a concrete stable release tag (n8n@x.y.z).
-                  tag=$(curl -fsSL "https://api.github.com/repos/n8n-io/n8n/releases?per_page=100" \
-                    | jq -r '[.[] | .tag_name | select(test("^n8n@[0-9]+\\.[0-9]+\\.[0-9]+$"))][0]')
+          # Prefer a concrete stable release tag (n8n@x.y.z).
+          tag=$(curl -fsSL "https://api.github.com/repos/n8n-io/n8n/releases?per_page=100" \
+            | jq -r '[.[] | .tag_name | select(test("^n8n@[0-9]+\\.[0-9]+\\.[0-9]+$"))][0]')
 
-                  # Fallback for API/ranking anomalies.
-                  if [[ -z "$tag" || "$tag" == "null" ]]; then
-                    tag=$(curl -fsSL "https://api.github.com/repos/n8n-io/n8n/tags?per_page=100" \
-                      | jq -r '[.[].name | select(test("^n8n@[0-9]+\\.[0-9]+\\.[0-9]+$"))][0]')
-                  fi
+          # Fallback for API/ranking anomalies.
+          if [[ -z "$tag" || "$tag" == "null" ]]; then
+            tag=$(curl -fsSL "https://api.github.com/repos/n8n-io/n8n/tags?per_page=100" \
+              | jq -r '[.[].name | select(test("^n8n@[0-9]+\\.[0-9]+\\.[0-9]+$"))][0]')
+          fi
 
-                  if [[ -z "$tag" || "$tag" == "null" ]]; then
-                    echo "Failed to resolve a concrete n8n release tag"
-                    exit 1
-                  fi
+          if [[ -z "$tag" || "$tag" == "null" ]]; then
+            echo "Failed to resolve a concrete n8n release tag"
+            exit 1
+          fi
 
-                  version="${tag#n8n@}"
-                  echo "tag=$tag" >> "$GITHUB_OUTPUT"
-                  echo "version=$version" >> "$GITHUB_OUTPUT"
-                  echo "Resolved n8n tag: $tag"
+          version="${tag#n8n@}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Resolved n8n tag: $tag"
 
-            - name: Resolve current tracked n8n version
-              id: current
-              run: |
-                  set -euo pipefail
-                  if [[ -f .n8n-upstream-version ]]; then
-                    current=$(tr -d '[:space:]' < .n8n-upstream-version)
-                  else
-                    current=$(grep -E '^\s*image:\s*n8nio/n8n:' docker-compose.yml | sed -E 's#^\s*image:\s*n8nio/n8n:##' | tr -d '[:space:]')
-                  fi
-                  echo "version=$current" >> "$GITHUB_OUTPUT"
-                  echo "Current tracked n8n version: $current"
+      - name: Resolve current tracked n8n version
+        id: current
+        run: |
+          set -euo pipefail
+          if [[ -f .n8n-upstream-version ]]; then
+            current=$(tr -d '[:space:]' < .n8n-upstream-version)
+          else
+            current=$(grep -E '^\s*image:\s*n8nio/n8n:' docker-compose.yml | sed -E 's#^\s*image:\s*n8nio/n8n:##' | tr -d '[:space:]')
+          fi
+          echo "version=$current" >> "$GITHUB_OUTPUT"
+          echo "Current tracked n8n version: $current"
 
-            - name: Skip if release already published
-              id: already_done
-              run: |
-                  set -euo pipefail
-                  if [[ "${{ steps.current.outputs.version }}" == "${{ steps.latest.outputs.version }}" ]]; then
-                    echo "skip=true" >> "$GITHUB_OUTPUT"
-                    echo "Already tracking latest n8n version: ${{ steps.latest.outputs.version }}"
-                    exit 0
-                  fi
+      - name: Skip if release already published
+        id: already_done
+        run: |
+          set -euo pipefail
+          if [[ "${{ steps.current.outputs.version }}" == "${{ steps.latest.outputs.version }}" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Already tracking latest n8n version: ${{ steps.latest.outputs.version }}"
+            exit 0
+          fi
 
-                  pattern="${{ steps.latest.outputs.version }}-ja.*"
-                  if git ls-remote --tags origin "refs/tags/${pattern}" | grep -q .; then
-                    echo "skip=true" >> "$GITHUB_OUTPUT"
-                    echo "Detected existing ja release tag for version ${{ steps.latest.outputs.version }}"
-                  else
-                    echo "skip=false" >> "$GITHUB_OUTPUT"
-                  fi
+          pattern="${{ steps.latest.outputs.version }}-ja.*"
+          if git ls-remote --tags origin "refs/tags/${pattern}" | grep -q .; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Detected existing ja release tag for version ${{ steps.latest.outputs.version }}"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
 
-            - name: Setup Node.js
-              if: steps.already_done.outputs.skip == 'false'
-              uses: actions/setup-node@v5
-              with:
-                  node-version: 22.x
+      - name: Setup Node.js
+        if: steps.already_done.outputs.skip == 'false'
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22.x
 
-            - name: Setup corepack and pnpm
-              if: steps.already_done.outputs.skip == 'false'
-              run: |
-                  set -euo pipefail
-                  npm i -g corepack@0.31
-                  corepack enable
+      - name: Setup corepack and pnpm
+        if: steps.already_done.outputs.skip == 'false'
+        run: |
+          set -euo pipefail
+          npm i -g corepack@0.31
+          corepack enable
 
-            - name: Checkout n8n source
-              if: steps.already_done.outputs.skip == 'false'
-              uses: actions/checkout@v5
-              with:
-                  repository: n8n-io/n8n
-                  ref: ${{ steps.latest.outputs.tag }}
-                  path: n8n
+      - name: Checkout n8n source
+        if: steps.already_done.outputs.skip == 'false'
+        uses: actions/checkout@v5
+        with:
+          repository: n8n-io/n8n
+          ref: ${{ steps.latest.outputs.tag }}
+          path: n8n
 
-            - name: Install n8n dependencies
-              if: steps.already_done.outputs.skip == 'false'
-              run: pnpm install --frozen-lockfile
-              working-directory: n8n
+      - name: Install n8n dependencies
+        if: steps.already_done.outputs.skip == 'false'
+        run: pnpm install --frozen-lockfile
+        working-directory: n8n
 
-            - name: Resolve editor-ui directory
-              if: steps.already_done.outputs.skip == 'false'
-              id: editorui
-              run: |
-                  set -euo pipefail
-                  new_path="$GITHUB_WORKSPACE/n8n/packages/frontend/editor-ui"
-                  old_path="$GITHUB_WORKSPACE/n8n/packages/editor-ui"
+      - name: Resolve editor-ui directory
+        if: steps.already_done.outputs.skip == 'false'
+        id: editorui
+        run: |
+          set -euo pipefail
+          new_path="$GITHUB_WORKSPACE/n8n/packages/frontend/editor-ui"
+          old_path="$GITHUB_WORKSPACE/n8n/packages/editor-ui"
 
-                  if [[ -d "$new_path" ]]; then
-                    echo "flag=new" >> "$GITHUB_OUTPUT"
-                    echo "dir=$new_path" >> "$GITHUB_OUTPUT"
-                  else
-                    echo "flag=old" >> "$GITHUB_OUTPUT"
-                    echo "dir=$old_path" >> "$GITHUB_OUTPUT"
-                  fi
+          if [[ -d "$new_path" ]]; then
+            echo "flag=new" >> "$GITHUB_OUTPUT"
+            echo "dir=$new_path" >> "$GITHUB_OUTPUT"
+          else
+            echo "flag=old" >> "$GITHUB_OUTPUT"
+            echo "dir=$old_path" >> "$GITHUB_OUTPUT"
+          fi
 
-            - name: Resolve locale directory
-              if: steps.already_done.outputs.skip == 'false'
-              id: locales
-              run: |
-                  set -euo pipefail
-                  modern_locale_path="$GITHUB_WORKSPACE/n8n/packages/frontend/@n8n/i18n/src/locales"
-                  new_locale_path="${{ steps.editorui.outputs.dir }}/src/plugins/i18n/locales"
-                  old_locale_path="$GITHUB_WORKSPACE/n8n/packages/editor-ui/src/plugins/i18n/locales"
+      - name: Resolve locale directory
+        if: steps.already_done.outputs.skip == 'false'
+        id: locales
+        run: |
+          set -euo pipefail
+          modern_locale_path="$GITHUB_WORKSPACE/n8n/packages/frontend/@n8n/i18n/src/locales"
+          new_locale_path="${{ steps.editorui.outputs.dir }}/src/plugins/i18n/locales"
+          old_locale_path="$GITHUB_WORKSPACE/n8n/packages/editor-ui/src/plugins/i18n/locales"
 
-                  if [[ -d "$modern_locale_path" ]]; then
-                    echo "dir=$modern_locale_path" >> "$GITHUB_OUTPUT"
-                  elif [[ -d "$new_locale_path" ]]; then
-                    echo "dir=$new_locale_path" >> "$GITHUB_OUTPUT"
-                  elif [[ -d "$old_locale_path" ]]; then
-                    echo "dir=$old_locale_path" >> "$GITHUB_OUTPUT"
-                  else
-                    echo "Unable to find locale directory in checked out n8n source" >&2
-                    exit 1
-                  fi
+          if [[ -d "$modern_locale_path" ]]; then
+            echo "dir=$modern_locale_path" >> "$GITHUB_OUTPUT"
+          elif [[ -d "$new_locale_path" ]]; then
+            echo "dir=$new_locale_path" >> "$GITHUB_OUTPUT"
+          elif [[ -d "$old_locale_path" ]]; then
+            echo "dir=$old_locale_path" >> "$GITHUB_OUTPUT"
+          else
+            echo "Unable to find locale directory in checked out n8n source" >&2
+            exit 1
+          fi
 
-            - name: Sync upstream English locale
-              if: steps.already_done.outputs.skip == 'false'
-              run: |
-                  set -euo pipefail
-                  cp "${{ steps.locales.outputs.dir }}/en.json" "$GITHUB_WORKSPACE/script/en.json"
+      - name: Sync upstream English locale
+        if: steps.already_done.outputs.skip == 'false'
+        run: |
+          set -euo pipefail
+          cp "${{ steps.locales.outputs.dir }}/en.json" "$GITHUB_WORKSPACE/script/en.json"
 
-            - name: Install translator dependencies
-              if: steps.already_done.outputs.skip == 'false'
-              run: npm ci
+      - name: Install translator dependencies
+        if: steps.already_done.outputs.skip == 'false'
+        run: npm ci
 
-            - name: Regenerate Japanese locale
-              if: steps.already_done.outputs.skip == 'false'
-              run: npm run i18n:translate:google
-              env:
-                  GOOGLE_TRANSLATE_CONCURRENCY: "6"
-                  GOOGLE_TRANSLATE_SAVE_EVERY: "50"
+      - name: Regenerate Japanese locale
+        if: steps.already_done.outputs.skip == 'false'
+        run: npm run i18n:translate:google
+        env:
+          GOOGLE_TRANSLATE_CONCURRENCY: "6"
+          GOOGLE_TRANSLATE_SAVE_EVERY: "50"
 
-            - name: Apply Japanese locale and patch
-              if: steps.already_done.outputs.skip == 'false'
-              run: |
-                  set -euo pipefail
-                  cp -r "$GITHUB_WORKSPACE/languages"/* "${{ steps.locales.outputs.dir }}/"
+      - name: Apply Japanese locale and patch
+        if: steps.already_done.outputs.skip == 'false'
+        run: |
+          set -euo pipefail
+          cp -r "$GITHUB_WORKSPACE/languages"/* "${{ steps.locales.outputs.dir }}/"
 
-                  patch_applied=false
-                  for patch in fix_editor-ui.patch fix_editor-ui.old.patch; do
-                    if git -C "$GITHUB_WORKSPACE/n8n" apply --check "$GITHUB_WORKSPACE/$patch" >/dev/null 2>&1; then
-                      git -C "$GITHUB_WORKSPACE/n8n" apply "$GITHUB_WORKSPACE/$patch"
-                      echo "Applied patch: $patch"
-                      patch_applied=true
-                      break
-                    fi
-                  done
+          patch_applied=false
+          for patch in fix_editor-ui.patch fix_editor-ui.old.patch; do
+            if git -C "$GITHUB_WORKSPACE/n8n" apply --check "$GITHUB_WORKSPACE/$patch" >/dev/null 2>&1; then
+              git -C "$GITHUB_WORKSPACE/n8n" apply "$GITHUB_WORKSPACE/$patch"
+              echo "Applied patch: $patch"
+              patch_applied=true
+              break
+            fi
+          done
 
-                  if [[ "$patch_applied" == "false" ]]; then
-                    echo "No compatible editor-ui patch found. Skip patch apply."
-                  fi
+          if [[ "$patch_applied" == "false" ]]; then
+            echo "No compatible editor-ui patch found. Skip patch apply."
+          fi
 
-            - name: Build vitest config package
-              if: steps.already_done.outputs.skip == 'false'
-              run: pnpm --filter @n8n/vitest-config build
-              working-directory: n8n
+      - name: Ensure HtmlEditor dependency exists
+        if: steps.already_done.outputs.skip == 'false'
+        run: |
+          set -euo pipefail
+          workspace_pkg_dir="$GITHUB_WORKSPACE/n8n/packages/frontend/@n8n/codemirror-lang-html"
+          editor_ui_pkg="${{ steps.editorui.outputs.dir }}/package.json"
 
-            - name: Build n8n-workflow package
-              if: steps.already_done.outputs.skip == 'false'
-              run: pnpm --filter n8n-workflow... build
-              working-directory: n8n
+          if [[ ! -f "$editor_ui_pkg" ]]; then
+            echo "editor-ui package.json not found at: $editor_ui_pkg"
+            exit 1
+          fi
 
-            - name: Build editor-ui
-              if: steps.already_done.outputs.skip == 'false'
-              run: pnpm build
-              working-directory: ${{ steps.editorui.outputs.dir }}
+          if [[ ! -d "$workspace_pkg_dir" ]]; then
+            echo "Workspace package not found: $workspace_pkg_dir"
+            echo "Skip fallback install for @n8n/codemirror-lang-html"
+            exit 0
+          fi
 
-            - name: Export editor-ui artifact
-              if: steps.already_done.outputs.skip == 'false'
-              run: |
-                  set -euo pipefail
-                  rm -rf "$GITHUB_WORKSPACE/editor-ui-dist"
-                  cp -r "${{ steps.editorui.outputs.dir }}/dist" "$GITHUB_WORKSPACE/editor-ui-dist"
-                  tar -czf "$GITHUB_WORKSPACE/editor-ui.tar.gz" -C "${{ steps.editorui.outputs.dir }}" dist
+          if grep -q '"@n8n/codemirror-lang-html"' "$editor_ui_pkg"; then
+            echo "@n8n/codemirror-lang-html is already declared in editor-ui dependencies"
+            exit 0
+          fi
 
-            - name: Update version marker and compose image tag
-              if: steps.already_done.outputs.skip == 'false'
-              run: |
-                  set -euo pipefail
-                  echo "${{ steps.latest.outputs.version }}" > .n8n-upstream-version
-                  sed -i -E "s#(^\s*image:\s*n8nio/n8n:).*#\1${{ steps.latest.outputs.version }}#" docker-compose.yml
+          pnpm --filter n8n-editor-ui add @n8n/codemirror-lang-html@workspace:* --no-frozen-lockfile
+        working-directory: n8n
 
-            - name: Create Pull Request
-              if: steps.already_done.outputs.skip == 'false'
-              id: cpr
-              uses: peter-evans/create-pull-request@v6
-              with:
-                  branch: auto/n8n-${{ steps.latest.outputs.version }}-ja
-                  title: "chore: n8n ${{ steps.latest.outputs.version }} 日本語化更新"
-                  body: |
-                      ## 概要
-                      - n8n upstream: `${{ steps.latest.outputs.tag }}`
-                      - `script/en.json` を upstream から同期
-                      - `languages/ja.json` を再翻訳
-                      - `editor-ui-dist` を再生成
-                      - `docker-compose.yml` の n8n イメージタグ更新
-                      - `.n8n-upstream-version` を更新
+      - name: Build editor-ui with dependencies
+        if: steps.already_done.outputs.skip == 'false'
+        run: pnpm --filter n8n-editor-ui... build
+        working-directory: n8n
 
-                      ## 検証
-                      - PR checks (format check / n8n smoke test) で確認します。
-                  commit-message: "chore: n8n ${{ steps.latest.outputs.version }} 日本語化更新"
-                  delete-branch: true
-                  labels: |
-                      automated
-                      n8n-update
+      - name: Export editor-ui artifact
+        if: steps.already_done.outputs.skip == 'false'
+        run: |
+          set -euo pipefail
+          rm -rf "$GITHUB_WORKSPACE/editor-ui-dist"
+          cp -r "${{ steps.editorui.outputs.dir }}/dist" "$GITHUB_WORKSPACE/editor-ui-dist"
+          tar -czf "$GITHUB_WORKSPACE/editor-ui.tar.gz" -C "${{ steps.editorui.outputs.dir }}" dist
 
-            - name: Enable auto-merge for PR
-              if: steps.already_done.outputs.skip == 'false' &&
-                  steps.cpr.outputs.pull-request-number != ''
-              uses: peter-evans/enable-pull-request-automerge@v3
-              with:
-                  pull-request-number: ${{ steps.cpr.outputs.pull-request-number }}
-                  merge-method: squash
+      - name: Update version marker and compose image tag
+        if: steps.already_done.outputs.skip == 'false'
+        run: |
+          set -euo pipefail
+          echo "${{ steps.latest.outputs.version }}" > .n8n-upstream-version
+          sed -i -E "s#(^\s*image:\s*n8nio/n8n:).*#\1${{ steps.latest.outputs.version }}#" docker-compose.yml
+
+      - name: Create Pull Request
+        if: steps.already_done.outputs.skip == 'false'
+        id: cpr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: auto/n8n-${{ steps.latest.outputs.version }}-ja
+          title: "chore: n8n ${{ steps.latest.outputs.version }} 日本語化更新"
+          body: |
+            ## 概要
+            - n8n upstream: `${{ steps.latest.outputs.tag }}`
+            - `script/en.json` を upstream から同期
+            - `languages/ja.json` を再翻訳
+            - `editor-ui-dist` を再生成
+            - `docker-compose.yml` の n8n イメージタグ更新
+            - `.n8n-upstream-version` を更新
+
+            ## 検証
+            - PR checks (format check / n8n smoke test) で確認します。
+          commit-message: "chore: n8n ${{ steps.latest.outputs.version }} 日本語化更新"
+          delete-branch: true
+          labels: |
+            automated
+            n8n-update
+
+      - name: Enable auto-merge for PR
+        if: steps.already_done.outputs.skip == 'false' &&
+          steps.cpr.outputs.pull-request-number != ''
+        uses: peter-evans/enable-pull-request-automerge@v3
+        with:
+          pull-request-number: ${{ steps.cpr.outputs.pull-request-number }}
+          merge-method: squash
