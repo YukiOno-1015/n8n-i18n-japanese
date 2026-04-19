@@ -1,6 +1,7 @@
+---
 name: PR検証
 
-on:
+"on":
     pull_request:
         branches:
             - main
