@@ -1,0 +1,148 @@
+name: n8n更新監視とPR作成
+
+on:
+    schedule:
+        - cron: "0 * * * *"
+    workflow_dispatch:
+
+permissions:
+    contents: write
+    pull-requests: write
+
+jobs:
+    detect-and-pr:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Get latest n8n release tag
+              id: latest
+              run: |
+                  set -euo pipefail
+                  tag=$(curl -s https://api.github.com/repos/n8n-io/n8n/releases/latest | jq -r '.tag_name')
+                  if [[ -z "$tag" || "$tag" == "null" ]]; then
+                    echo "Failed to fetch latest n8n release tag"
+                    exit 1
+                  fi
+                  version="${tag#n8n@}"
+                  echo "tag=$tag" >> "$GITHUB_OUTPUT"
+                  echo "version=$version" >> "$GITHUB_OUTPUT"
+                  echo "Latest n8n tag: $tag"
+
+            - name: Skip if release already published
+              id: already_done
+              run: |
+                  set -euo pipefail
+                  pattern="${{ steps.latest.outputs.version }}-ja.*"
+                  if git ls-remote --tags origin "refs/tags/${pattern}" | grep -q .; then
+                    echo "skip=true" >> "$GITHUB_OUTPUT"
+                    echo "Detected existing ja release tag for version ${{ steps.latest.outputs.version }}"
+                  else
+                    echo "skip=false" >> "$GITHUB_OUTPUT"
+                  fi
+
+            - name: Setup Node.js
+              if: steps.already_done.outputs.skip == 'false'
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20.x
+
+            - name: Setup corepack and pnpm
+              if: steps.already_done.outputs.skip == 'false'
+              run: |
+                  set -euo pipefail
+                  npm i -g corepack@0.31
+                  corepack enable
+
+            - name: Checkout n8n source
+              if: steps.already_done.outputs.skip == 'false'
+              uses: actions/checkout@v4
+              with:
+                  repository: n8n-io/n8n
+                  ref: ${{ steps.latest.outputs.tag }}
+                  path: n8n
+
+            - name: Install n8n dependencies
+              if: steps.already_done.outputs.skip == 'false'
+              run: pnpm install --frozen-lockfile
+              working-directory: n8n
+
+            - name: Resolve editor-ui directory
+              if: steps.already_done.outputs.skip == 'false'
+              id: editorui
+              run: |
+                  set -euo pipefail
+                  new_path="$GITHUB_WORKSPACE/n8n/packages/frontend/editor-ui"
+                  old_path="$GITHUB_WORKSPACE/n8n/packages/editor-ui"
+
+                  if [[ -d "$new_path" ]]; then
+                    echo "flag=new" >> "$GITHUB_OUTPUT"
+                    echo "dir=$new_path" >> "$GITHUB_OUTPUT"
+                  else
+                    echo "flag=old" >> "$GITHUB_OUTPUT"
+                    echo "dir=$old_path" >> "$GITHUB_OUTPUT"
+                  fi
+
+            - name: Apply Japanese locale and patch
+              if: steps.already_done.outputs.skip == 'false'
+              run: |
+                  set -euo pipefail
+                  cp -r "$GITHUB_WORKSPACE/languages"/* "${{ steps.editorui.outputs.dir }}/src/plugins/i18n/locales/"
+
+                  if [[ "${{ steps.editorui.outputs.flag }}" == "new" ]]; then
+                    git -C "$GITHUB_WORKSPACE/n8n" apply "$GITHUB_WORKSPACE/fix_editor-ui.patch"
+                  else
+                    git -C "$GITHUB_WORKSPACE/n8n" apply "$GITHUB_WORKSPACE/fix_editor-ui.old.patch"
+                  fi
+
+            - name: Build editor-ui
+              if: steps.already_done.outputs.skip == 'false'
+              run: pnpm build
+              working-directory: ${{ steps.editorui.outputs.dir }}
+
+            - name: Export editor-ui artifact
+              if: steps.already_done.outputs.skip == 'false'
+              run: |
+                  set -euo pipefail
+                  rm -rf "$GITHUB_WORKSPACE/editor-ui-dist"
+                  cp -r "${{ steps.editorui.outputs.dir }}/dist" "$GITHUB_WORKSPACE/editor-ui-dist"
+                  tar -czf "$GITHUB_WORKSPACE/editor-ui.tar.gz" -C "${{ steps.editorui.outputs.dir }}" dist
+
+            - name: Update version marker and compose image tag
+              if: steps.already_done.outputs.skip == 'false'
+              run: |
+                  set -euo pipefail
+                  echo "${{ steps.latest.outputs.version }}" > .n8n-upstream-version
+                  sed -i -E "s#(^\s*image:\s*n8nio/n8n:).*#\1${{ steps.latest.outputs.version }}#" docker-compose.yml
+
+            - name: Create Pull Request
+              if: steps.already_done.outputs.skip == 'false'
+              id: cpr
+              uses: peter-evans/create-pull-request@v6
+              with:
+                  branch: auto/n8n-${{ steps.latest.outputs.version }}-ja
+                  title: "chore: n8n ${{ steps.latest.outputs.version }} 日本語化更新"
+                  body: |
+                      ## 概要
+                      - n8n upstream: `${{ steps.latest.outputs.tag }}`
+                      - `editor-ui-dist` を再生成
+                      - `docker-compose.yml` の n8n イメージタグ更新
+                      - `.n8n-upstream-version` を更新
+
+                      ## 検証
+                      - PR checks (format check / n8n smoke test) で確認します。
+                  commit-message: "chore: n8n ${{ steps.latest.outputs.version }} 日本語化更新"
+                  delete-branch: true
+                  labels: |
+                      automated
+                      n8n-update
+
+            - name: Enable auto-merge for PR
+              if: steps.already_done.outputs.skip == 'false' &&
+                  steps.cpr.outputs.pull-request-number != ''
+              uses: peter-evans/enable-pull-request-automerge@v3
+              with:
+                  pull-request-number: ${{ steps.cpr.outputs.pull-request-number }}
+                  merge-method: squash

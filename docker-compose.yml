@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   n8ntest:
     image: n8nio/n8n:latest
@@ -9,7 +7,22 @@ services:
     environment:
       - N8N_DEFAULT_LOCALE=ja
       - N8N_SECURE_COOKIE=false
-    volumes: []
+    volumes:
+      - ./editor-ui-dist:/usr/local/lib/node_modules/n8n/node_modules/n8n-editor-ui/dist
     stdin_open: true
     tty: true
     restart: unless-stopped
+
+  translator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: n8n-i18n-japanese-translator:latest
+    container_name: n8n-i18n-translator
+    env_file:
+      - .env
+    volumes:
+      - ./languages:/app/languages
+      - ./script:/app/script
+    command: [ "script/translate.js" ]
+    restart: "no"

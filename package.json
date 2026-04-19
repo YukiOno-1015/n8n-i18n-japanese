@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "i18n:translate": "node ./script/translate.js"
+    "i18n:translate": "node ./script/translate.js",
+    "i18n:translate:google": "node ./script/translate-google.js"
   },
   "repository": {
     "type": "git",
@@ -12,6 +13,7 @@
   },
   "private": true,
   "devDependencies": {
-    "dotenv": "^16.4.7"
+    "dotenv": "^17.4.2",
+    "google-translate-api-x": "^10.7.2"
   }
 }

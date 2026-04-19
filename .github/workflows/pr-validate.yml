@@ -1,0 +1,83 @@
+name: PR検証
+
+on:
+    pull_request:
+        branches:
+            - main
+
+permissions:
+    contents: read
+
+jobs:
+    format-check:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Validate JSON files
+              run: |
+                  set -euo pipefail
+                  node - <<'NODE'
+                  const fs = require('fs');
+                  const files = [
+                    'languages/ja.json',
+                    'script/en.json',
+                    '.env.example',
+                    'docker-compose.yml',
+                  ];
+
+                  // Strict JSON check for locale files
+                  for (const file of ['languages/ja.json', 'script/en.json']) {
+                    JSON.parse(fs.readFileSync(file, 'utf8'));
+                  }
+
+                  // Basic presence check for other tracked files
+                  for (const file of files) {
+                    if (!fs.existsSync(file)) {
+                      throw new Error(`Missing file: ${file}`);
+                    }
+                  }
+
+                  console.log('JSON and required file checks passed.');
+                  NODE
+
+            - name: Check translator script syntax
+              run: node --check script/translate-google.js
+
+    n8n-smoke-test:
+        runs-on: ubuntu-latest
+        needs: format-check
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Prepare environment file
+              run: cp .env.example .env
+
+            - name: Start n8n container
+              run: docker compose up -d n8ntest
+
+            - name: Wait until n8n responds
+              run: |
+                  set -euo pipefail
+                  timeout 240 bash -c 'until curl -fsS http://127.0.0.1:15678 >/dev/null; do echo "waiting for n8n..."; sleep 3; done'
+
+            - name: Verify container status
+              run: docker compose ps
+
+            - name: Dump logs on failure
+              if: failure()
+              run: docker compose logs n8ntest
+
+            - name: Shutdown containers
+              if: always()
+              run: docker compose down -v

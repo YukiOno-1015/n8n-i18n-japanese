@@ -11,9 +11,9 @@
 
 ## 主な機能
 
-*   **翻訳済み `editor-ui` の配布 (推奨)**: 最新の n8n リリースに対応した、日本語化済みの `editor-ui` ビルド成果物を [GitHub Releases](https://github.com/nemumusito/n8n-i18n-japanese/releases) で公開しています。
-*   **日本語翻訳ファイルの提供**: n8n の UI テキストに対応する日本語の翻訳ファイル ([`languages/ja.json`](languages/ja.json:0)) を提供します。これは主に開発者や、自身でビルドを行いたい方向けです。
-*   **Docker イメージでの簡易利用**: `docker-compose` を使用して、日本語化された n8n 環境を簡単に起動できます。
+- **翻訳済み `editor-ui` の配布 (推奨)**: 最新の n8n リリースに対応した、日本語化済みの `editor-ui` ビルド成果物を [GitHub Releases](https://github.com/nemumusito/n8n-i18n-japanese/releases) で公開しています。
+- **日本語翻訳ファイルの提供**: n8n の UI テキストに対応する日本語の翻訳ファイル ([`languages/ja.json`](languages/ja.json:0)) を提供します。これは主に開発者や、自身でビルドを行いたい方向けです。
+- **Docker イメージでの簡易利用**: `docker-compose` を使用して、日本語化された n8n 環境を簡単に起動できます。
 
 ## 利用方法
 
@@ -25,63 +25,77 @@
     ダウンロードした `editor-ui.tar.gz` を展開し、`editor-ui-dist` ディレクトリを取得します。
 3.  **Docker で n8n を起動**:
     以下のいずれかの方法で Docker を利用して n8n を起動します。
+    - **`docker-compose.yml` を利用する場合 (簡単):**
+      1.  このリポジトリをクローンまたはダウンロードします。
+          ```shell
+          git clone https://github.com/nemumusito/n8n-i18n-japanese.git # またはあなたのフォーク
+          cd n8n-i18n-japanese
+          ```
+      2.  取得した `editor-ui-dist` ディレクトリを、クローンしたリポジトリのルート (`docker-compose.yml` と同じ階層) に配置します。
+      3.  `docker-compose.yml` 内の `image: n8nio/n8n:{version}` の `{version}` を、ダウンロードしたパッケージが対応する n8n のバージョンに合わせてください (例: `n8nio/n8n:1.23.0`)。
+      4.  Docker Compose を起動します。
+          ```shell
+          docker-compose up
+          ```
+          これにより、配置した `editor-ui-dist` がコンテナにマウントされ、n8n が日本語 UI で起動します。
 
-    *   **`docker-compose.yml` を利用する場合 (簡単):**
-        1.  このリポジトリをクローンまたはダウンロードします。
-            ```shell
-            git clone https://github.com/nemumusito/n8n-i18n-japanese.git # またはあなたのフォーク
-            cd n8n-i18n-japanese
-            ```
-        2.  取得した `editor-ui-dist` ディレクトリを、クローンしたリポジトリのルート (`docker-compose.yml` と同じ階層) に配置します。
-        3.  `docker-compose.yml` 内の `image: n8nio/n8n:{version}` の `{version}` を、ダウンロードしたパッケージが対応する n8n のバージョンに合わせてください (例: `n8nio/n8n:1.23.0`)。
-        4.  Docker Compose を起動します。
-            ```shell
-            docker-compose up
-            ```
-            これにより、配置した `editor-ui-dist` がコンテナにマウントされ、n8n が日本語 UI で起動します。
-
-    *   **`docker run` コマンドを利用する場合:**
-        ```shell
-        # 【】内はご自身の環境に合わせて変更してください
-        docker run -it --rm --name n8n-japanese-test \
-        -p 15678:5678 \
-        -v 【ローカルの editor-ui-dist ディレクトリのパス】:/usr/local/lib/node_modules/n8n/node_modules/n8n-editor-ui/dist \
-        -e N8N_DEFAULT_LOCALE=ja \
-        -e N8N_SECURE_COOKIE=false \
-        n8nio/n8n:【n8nのバージョン】
-        ```
-        【n8nのバージョン】には、ダウンロードしたパッケージが対応するバージョンを指定してください。
+    - **`docker run` コマンドを利用する場合:**
+      ```shell
+      # 【】内はご自身の環境に合わせて変更してください
+      docker run -it --rm --name n8n-japanese-test \
+      -p 15678:5678 \
+      -v 【ローカルの editor-ui-dist ディレクトリのパス】:/usr/local/lib/node_modules/n8n/node_modules/n8n-editor-ui/dist \
+      -e N8N_DEFAULT_LOCALE=ja \
+      -e N8N_SECURE_COOKIE=false \
+      n8nio/n8n:【n8nのバージョン】
+      ```
+      【n8nのバージョン】には、ダウンロードしたパッケージが対応するバージョンを指定してください。
 
 ### 2. 手動で翻訳とビルドを行う場合 (開発者向け)
 
 最新の翻訳を自分で生成したり、開発目的で利用したりする場合は、以下の手順で手動実行できます。
 
 1.  **環境変数の設定**:
-    *   n8n のデフォルト言語を日本語に設定します。プロジェクトルートに `.env` ファイルを作成し、以下を記述するか、環境変数として設定してください。
-        ```
-        N8N_DEFAULT_LOCALE=ja
-        ```
-    *   翻訳スクリプトは Gemini API を利用します。プロジェクトルートに `.env` ファイルを作成 (または `.env.example` をコピーして編集) し、以下の環境変数を設定してください。
-        ```dotenv
-        # Gemini API Key (必須)
-        GEMINI_API_KEY="YOUR_GEMINI_API_KEY_HERE"
+    - n8n のデフォルト言語を日本語に設定します。プロジェクトルートに `.env` ファイルを作成し、以下を記述するか、環境変数として設定してください。
+      ```
+      N8N_DEFAULT_LOCALE=ja
+      ```
+    - 翻訳スクリプトは Gemini API を利用します。プロジェクトルートに `.env` ファイルを作成 (または `.env.example` をコピーして編集) し、以下の環境変数を設定してください。
 
-        # Gemini Model (任意、デフォルト: gemini-pro)
-        # 例: GEMINI_MODEL="gemini-1.5-flash-latest"
-        GEMINI_MODEL="gemini-pro"
+      ```dotenv
+      # Gemini API Key (必須)
+      GEMINI_API_KEY="YOUR_GEMINI_API_KEY_HERE"
 
-        # 翻訳プロンプト (任意、未設定の場合はスクリプト内のデフォルトプロンプトを使用)
-        # LLMに翻訳方法を指示するプロンプトです。
-        # カスタマイズする場合は、スクリプトが期待するプレースホルダー (${language}, ${uniqueSeparator}, ${textsToTranslate}) を含める必要があります。
-        # 詳細は .env.example ファイルおよび script/translate.js 内のデフォルトプロンプトを参照してください。
-        # TRANSLATION_PROMPT="ここにカスタムプロンプトを記述..."
-        #
-        # 翻訳対象言語 (任意、未設定の場合は日本語のみを対象とします)
-        # JSON形式の文字列で、オブジェクトの配列として指定します。
-        # 各オブジェクトは "name" (言語コード) と "label" (言語名) を持つ必要があります。
-        # 例: TARGET_LANGUAGES='[{"name":"ja","label":"日本語"},{"name":"en","label":"English"}]'
-        # TARGET_LANGUAGES='[{"name":"ja","label":"日本語"}]'
-        ```
+      # Gemini Model (任意、デフォルト: gemini-pro)
+      # AIプロバイダ (openai / gemini)
+      AI_PROVIDER="openai"
+
+      # OpenAI API Key (openai利用時は必須)
+      OPENAI_API_KEY="YOUR_OPENAI_API_KEY_HERE"
+
+      # OpenAI モデル (任意)
+      OPENAI_MODEL="gpt-4o-mini"
+
+      # Gemini API Key (gemini利用時は必須)
+      GEMINI_API_KEY="YOUR_GEMINI_API_KEY_HERE"
+
+      # Gemini モデル (任意)
+      # 例: GEMINI_MODEL="gemini-1.5-flash"
+      GEMINI_MODEL="gemini-1.5-flash"
+
+      # 翻訳プロンプト (任意、未設定の場合はスクリプト内のデフォルトプロンプトを使用)
+      # LLMに翻訳方法を指示するプロンプトです。
+      # カスタマイズする場合は、スクリプトが期待するプレースホルダー (${language}, ${uniqueSeparator}, ${textsToTranslate}) を含める必要があります。
+      # 詳細は .env.example ファイルおよび script/translate.js 内のデフォルトプロンプトを参照してください。
+      # TRANSLATION_PROMPT="ここにカスタムプロンプトを記述..."
+      #
+      # 翻訳対象言語 (任意、未設定の場合は日本語のみを対象とします)
+      # JSON形式の文字列で、オブジェクトの配列として指定します。
+      # 各オブジェクトは "name" (言語コード) と "label" (言語名) を持つ必要があります。
+      # 例: TARGET_LANGUAGES='[{"name":"ja","label":"日本語"},{"name":"en","label":"English"}]'
+      # TARGET_LANGUAGES='[{"name":"ja","label":"日本語"}]'
+      ```
+
 2.  **依存関係のインストール**:
     ```shell
     npm install
@@ -96,38 +110,108 @@
     上記スクリプトは翻訳ファイルを作成するのみです。n8n 本体に日本語 UI を適用するには、n8n のソースコードを取得し、`languages/ja.json` を配置した上で `editor-ui` パッケージをビルドし、生成された `dist` ディレクトリを n8n のインストール先に配置する必要があります。
     このリポジトリの GitHub Actions では、このビルドプロセスを自動化し、`editor-ui-dist` ディレクトリを生成して GitHub Releases に公開しています。
 
+### 3. Docker で翻訳スクリプトを実行する
+
+このリポジトリには、翻訳スクリプト実行用の `Dockerfile` が含まれています。
+ベースイメージは `node:22-alpine` (Node.js 22 系) を利用しています。
+
+1.  **`.env` を準備する**:
+    プロジェクトルートの `.env` に `AI_PROVIDER` と対応するAPIキー (`OPENAI_API_KEY` または `GEMINI_API_KEY`) を設定してください。
+2.  **Docker イメージをビルドする**:
+    ```shell
+    docker build -t n8n-i18n-japanese-translator .
+    ```
+3.  **翻訳スクリプトを実行する**:
+    ```shell
+    docker run --rm \
+      --env-file .env \
+      -v $(pwd)/languages:/app/languages \
+      -v $(pwd)/script:/app/script \
+      n8n-i18n-japanese-translator
+    ```
+
+この実行により、`languages/*.json` と `script/en.json` の更新結果がホスト側に反映されます。
+
+`docker-compose.yml` を使う場合は、以下でも実行できます。
+
+```shell
+docker compose build translator
+docker compose run --rm translator
+```
+
+補足: `docker compose` はプロジェクトルートの `.env` を読み込みます。`.env` の値は基本的に1行で記述し、複数行テキスト（改行を含む `TRANSLATION_PROMPT` など）はそのまま書かないようにしてください。
+
 ## 翻訳の仕組み
 
 1.  **英語ロケールファイルの取得**: n8n の公式リポジトリから最新の英語ロケールファイル (`en.json`) を取得します。
 2.  **差分翻訳**: ローカルに保存されている前回の英語ロケールファイル ([`script/en.json`](script/en.json:0)) と比較し、新規追加または変更されたテキストのみを抽出します。
-3.  **自動翻訳**: 抽出されたテキストを、[`script/translate.js`](script/translate.js:0) スクリプトが Gemini API を利用して日本語に翻訳します。
+3.  **自動翻訳**: 抽出されたテキストを、[`script/translate.js`](script/translate.js:0) スクリプトが OpenAI または Gemini API を利用して日本語に翻訳します。
 4.  **翻訳ファイルの保存**: 翻訳結果を既存の日本語翻訳ファイル ([`languages/ja.json`](languages/ja.json:0)) にマージ・更新します。
 5.  **UI への適用**: 更新された `ja.json` を含む `editor-ui` パッケージをビルドし、n8n 環境に配置します。環境変数 `N8N_DEFAULT_LOCALE=ja` を設定することで、n8n の UI が日本語で表示されます。
 
 ## GitHub Actions による自動化
 
-このリポジトリでは、GitHub Actions ([`.github/workflows/node.js.yml`](.github/workflows/node.js.yml:0)) を利用して、以下の処理を自動化し、[GitHub Releases](https://github.com/nemumusito/n8n-i18n-japanese/releases) に日本語化パッケージを公開しています。
+このリポジトリでは、3段構成の GitHub Actions で、監視からリリースまでを自動化しています。
 
-*   **定期的な n8n リリースチェック**: 毎日定時に n8n の GitHub リポジトリを監視し、新しいリリースがないか確認します。
-*   **自動ビルドとパッケージ化**:
-    *   新しい n8n のリリースが検出されると、そのバージョンの n8n ソースコードをチェックアウトします。
-    *   [`languages/ja.json`](languages/ja.json:0) を n8n のソースツリー内の適切な位置にコピーします。
-    *   n8n のバージョンに応じて、適切なパッチファイル ([`fix_editor-ui.patch`](fix_editor-ui.patch:0) または [`fix_editor-ui.old.patch`](fix_editor-ui.old.patch:0)) を適用します。これらのパッチは、翻訳表示に関する軽微な不具合を修正します。
-    *   日本語化された `editor-ui` パッケージをビルドします。
-    *   ビルドされた `dist` ディレクトリを `editor-ui-dist` としてリポジトリにコミットし、さらに `editor-ui.tar.gz` としてアーカイブします。
-    *   `docker-compose.yml` 内の n8n バージョンを、処理対象の n8n バージョンに更新します。
-*   **GitHub Release の作成**:
-    *   ビルドされた `editor-ui.tar.gz` を添付ファイルとして、新しい GitHub Release を作成します。
-    *   リリースには、対応する n8n のバージョンを示すタグ (例: `n8n@1.86.1`) が付けられます。このタグはリポジトリにもプッシュされます。
+- **監視と更新PR作成**: [.github/workflows/n8n-monitor-pr.yml](.github/workflows/n8n-monitor-pr.yml)
+  - n8n 最新リリースを定期監視
+  - 新バージョン検知時に `editor-ui-dist` を再生成
+  - `docker-compose.yml` の n8n バージョン更新
+  - 自動で更新PRを作成し、オートマージを有効化
 
-この自動化により、ユーザーは常に最新の n8n バージョンに対応した日本語化パッケージを容易に入手できます。
+- **PR検証**: [.github/workflows/pr-validate.yml](.github/workflows/pr-validate.yml)
+  - JSON/基本フォーマットチェック
+  - 翻訳スクリプト構文チェック
+  - `docker compose` で n8n を起動してスモークテスト
+
+- **mainマージ後リリース**: [.github/workflows/release-ja.yml](.github/workflows/release-ja.yml)
+  - n8n-ja Dockerイメージをビルドして Docker Hub へ push
+  - タグを自動採番して作成 (例: `2.17.2-ja.1`)
+  - GitHub Release を作成し、`languages/ja.json` と `editor-ui.tar.gz` を添付
+
+### 必要な Secrets
+
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_TOKEN`
+
+### Secrets の設定方法
+
+1. Docker Hub でアクセストークンを作成
+
+- Docker Hub にログイン
+- **Account Settings** → **Personal access tokens** → **Generate new token**
+- トークン名を入力して作成し、表示されたトークン文字列を控える
+
+2. GitHub リポジトリに Secrets を登録
+
+- 対象リポジトリを開く
+- **Settings** → **Secrets and variables** → **Actions**
+- **New repository secret** から以下を追加
+  - `DOCKERHUB_USERNAME`: Docker Hub のユーザー名
+  - `DOCKERHUB_TOKEN`: 上記で作成した Docker Hub Personal Access Token
+
+3. 動作確認
+
+- `main` への push で `mainマージ後リリース` ワークフローが実行される
+- `Log in to Docker Hub` ステップが成功すれば Secrets 設定は正常
+
+4. 運用上の推奨
+
+- トークンは定期ローテーションする
+- 不要になったトークンは Docker Hub 側で失効させる
+- Organization 管理の場合は、必要に応じて Organization Secrets を使用する
+
+### 補足
+
+- n8n-ja イメージは [Dockerfile.n8n-ja](Dockerfile.n8n-ja) を使って作成します。
+- タグ採番は、同一 n8n バージョンに対して `-ja.N` をインクリメントします。
 
 ## コントリビューション
 
 翻訳の改善や、他の言語パックの追加、機能改善に関するプルリクエストを歓迎します。
 
-*   **他の言語パックの追加**:
-    1.  [`languages/`](languages/) ディレクトリに `{言語コード}.json` (例: `ko.json`) の形式でファイルを作成します。
-    2.  [`script/translate.js`](script/translate.js:0) の `targetLanguages` 配列に新しい言語の情報を追加します。
-    3.  プルリクエストを送信してください。可能であれば、翻訳スクリプトが新しい言語に対応できるように修正を加えてください。
-*   **不具合報告・改善提案**: Issues にてご報告ください。
+- **他の言語パックの追加**:
+  1.  [`languages/`](languages/) ディレクトリに `{言語コード}.json` (例: `ko.json`) の形式でファイルを作成します。
+  2.  [`script/translate.js`](script/translate.js:0) の `targetLanguages` 配列に新しい言語の情報を追加します。
+  3.  プルリクエストを送信してください。可能であれば、翻訳スクリプトが新しい言語に対応できるように修正を加えてください。
+- **不具合報告・改善提案**: Issues にてご報告ください。
