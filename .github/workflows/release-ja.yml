@@ -53,6 +53,64 @@ jobs:
                   echo "tag=$full_tag" >> "$GITHUB_OUTPUT"
                   echo "release_name=n8n ${{ steps.version.outputs.n8n_version }} 日本語化 ${full_tag}" >> "$GITHUB_OUTPUT"
 
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20.x
+
+            - name: Setup corepack and pnpm
+              run: |
+                  set -euo pipefail
+                  npm i -g corepack@0.31
+                  corepack enable
+
+            - name: Checkout n8n source
+              uses: actions/checkout@v4
+              with:
+                  repository: n8n-io/n8n
+                  ref: n8n@${{ steps.version.outputs.n8n_version }}
+                  path: n8n
+
+            - name: Install n8n dependencies
+              run: pnpm install --frozen-lockfile
+              working-directory: n8n
+
+            - name: Resolve editor-ui directory
+              id: editorui
+              run: |
+                  set -euo pipefail
+                  new_path="$GITHUB_WORKSPACE/n8n/packages/frontend/editor-ui"
+                  old_path="$GITHUB_WORKSPACE/n8n/packages/editor-ui"
+
+                  if [[ -d "$new_path" ]]; then
+                    echo "flag=new" >> "$GITHUB_OUTPUT"
+                    echo "dir=$new_path" >> "$GITHUB_OUTPUT"
+                  else
+                    echo "flag=old" >> "$GITHUB_OUTPUT"
+                    echo "dir=$old_path" >> "$GITHUB_OUTPUT"
+                  fi
+
+            - name: Apply Japanese locale and patch
+              run: |
+                  set -euo pipefail
+                  cp -r "$GITHUB_WORKSPACE/languages"/* "${{ steps.editorui.outputs.dir }}/src/plugins/i18n/locales/"
+
+                  if [[ "${{ steps.editorui.outputs.flag }}" == "new" ]]; then
+                    git -C "$GITHUB_WORKSPACE/n8n" apply "$GITHUB_WORKSPACE/fix_editor-ui.patch"
+                  else
+                    git -C "$GITHUB_WORKSPACE/n8n" apply "$GITHUB_WORKSPACE/fix_editor-ui.old.patch"
+                  fi
+
+            - name: Build editor-ui
+              run: pnpm build
+              working-directory: ${{ steps.editorui.outputs.dir }}
+
+            - name: Export editor-ui-dist
+              run: |
+                  set -euo pipefail
+                  rm -rf editor-ui-dist
+                  cp -r "${{ steps.editorui.outputs.dir }}/dist" editor-ui-dist
+
             - name: Create editor-ui archive
               run: |
                   set -euo pipefail
