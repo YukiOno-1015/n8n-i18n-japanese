@@ -86,7 +86,21 @@ jobs:
             - name: Wait until n8n responds
               run: |
                   set -euo pipefail
-                  timeout 240 bash -c 'until curl -fsS http://127.0.0.1:15678 >/dev/null; do echo "waiting for n8n..."; sleep 3; done'
+                  timeout 240 bash -c '
+                    until false; do
+                      code=$(curl -sS -o /dev/null -w "%{http_code}" http://127.0.0.1:15678 || true)
+
+                      # n8n version/configurationによっては / が 404 を返すため、
+                      # 5xx以外のHTTP応答が返っていれば起動済みとみなす
+                      if [[ "$code" =~ ^[1-4][0-9][0-9]$ ]]; then
+                        echo "n8n is reachable (HTTP $code)"
+                        break
+                      fi
+
+                      echo "waiting for n8n... (HTTP ${code:-none})"
+                      sleep 3
+                    done
+                  '
 
             - name: Verify container status
               run: docker compose ps
