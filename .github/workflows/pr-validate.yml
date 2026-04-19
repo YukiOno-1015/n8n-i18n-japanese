@@ -22,7 +22,7 @@ jobs:
                   ~/.local/bin/yamllint -d '{extends: default, rules: {line-length: disable}}' .github/workflows
 
             - name: Lint GitHub Actions workflows
-              uses: rhysd/actionlint@v1
+              uses: rhysd/actionlint@v1.7.12
 
     format-check:
         runs-on: ubuntu-latest
