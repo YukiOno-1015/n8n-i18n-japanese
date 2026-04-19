@@ -94,6 +94,14 @@ jobs:
           ref: ${{ steps.latest.outputs.tag }}
           path: n8n
 
+      - name: Auto refresh editor-ui patch
+        if: steps.already_done.outputs.skip == 'false'
+        run: |
+          set -euo pipefail
+          bash "$GITHUB_WORKSPACE/script/update-editor-ui-patch.sh" \
+            "$GITHUB_WORKSPACE/n8n" \
+            "$GITHUB_WORKSPACE/fix_editor-ui.patch"
+
       - name: Install n8n dependencies
         if: steps.already_done.outputs.skip == 'false'
         run: pnpm install --frozen-lockfile
@@ -169,7 +177,20 @@ jobs:
           done
 
           if [[ "$patch_applied" == "false" ]]; then
-            echo "No compatible editor-ui patch found. Skip patch apply."
+            fixed_new_path="$GITHUB_WORKSPACE/n8n/packages/frontend/editor-ui/src/features/credentials/components/CredentialEdit/CredentialConfig.vue"
+            fixed_old_path="$GITHUB_WORKSPACE/n8n/packages/frontend/editor-ui/src/components/CredentialEdit/CredentialConfig.vue"
+            legacy_old_path="$GITHUB_WORKSPACE/n8n/packages/editor-ui/src/components/CredentialEdit/CredentialConfig.vue"
+            app_vue_path="$GITHUB_WORKSPACE/n8n/packages/frontend/editor-ui/src/app/App.vue"
+
+            if { [[ -f "$fixed_new_path" ]] && grep -Fq 'if (!credTranslation) return;' "$fixed_new_path"; } || \
+               { [[ -f "$fixed_old_path" ]] && grep -Fq 'if (!credTranslation) return;' "$fixed_old_path"; } || \
+               { [[ -f "$legacy_old_path" ]] && grep -Fq 'if (!credTranslation) return;' "$legacy_old_path"; } || \
+               { [[ -f "$app_vue_path" ]] && grep -Fq "loadLanguage('ja'" "$app_vue_path"; }; then
+              echo "Patch not applied, but upstream already contains the fix."
+            else
+              echo "No compatible editor-ui patch found and fix was not detected in source." >&2
+              exit 1
+            fi
           fi
 
       - name: Ensure HtmlEditor dependency exists
@@ -220,7 +241,7 @@ jobs:
           if [[ "$ja_count" == "0" ]]; then
             echo "No Japanese bundle found in $assets_dir (expected ja-*.js)" >&2
             echo "Files containing 'ja' for debugging:" >&2
-            ls -1 "$assets_dir" | grep -i 'ja' || true
+            find "$assets_dir" -maxdepth 1 -type f -iname '*ja*' -exec basename {} \; || true
             exit 1
           fi
 
@@ -263,6 +284,7 @@ jobs:
             - n8n upstream: `${{ steps.latest.outputs.tag }}`
             - `script/en.json` を upstream から同期
             - `languages/ja.json` を再翻訳
+            - `fix_editor-ui.patch` を upstream 構成に合わせて自動更新
             - `editor-ui-dist` を再生成
             - `docker-compose.yml` の n8n イメージタグ更新
             - `.n8n-upstream-version` を更新

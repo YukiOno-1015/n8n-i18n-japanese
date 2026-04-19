@@ -137,7 +137,20 @@ jobs:
           done
 
           if [[ "$patch_applied" == "false" ]]; then
-            echo "No compatible editor-ui patch found. Skip patch apply."
+            fixed_new_path="$GITHUB_WORKSPACE/n8n/packages/frontend/editor-ui/src/features/credentials/components/CredentialEdit/CredentialConfig.vue"
+            fixed_old_path="$GITHUB_WORKSPACE/n8n/packages/frontend/editor-ui/src/components/CredentialEdit/CredentialConfig.vue"
+            legacy_old_path="$GITHUB_WORKSPACE/n8n/packages/editor-ui/src/components/CredentialEdit/CredentialConfig.vue"
+            app_vue_path="$GITHUB_WORKSPACE/n8n/packages/frontend/editor-ui/src/app/App.vue"
+
+            if { [[ -f "$fixed_new_path" ]] && grep -Fq 'if (!credTranslation) return;' "$fixed_new_path"; } || \
+               { [[ -f "$fixed_old_path" ]] && grep -Fq 'if (!credTranslation) return;' "$fixed_old_path"; } || \
+               { [[ -f "$legacy_old_path" ]] && grep -Fq 'if (!credTranslation) return;' "$legacy_old_path"; } || \
+               { [[ -f "$app_vue_path" ]] && grep -Fq "loadLanguage('ja'" "$app_vue_path"; }; then
+              echo "Patch not applied, but upstream already contains the fix."
+            else
+              echo "No compatible editor-ui patch found and fix was not detected in source." >&2
+              exit 1
+            fi
           fi
 
       - name: Ensure HtmlEditor dependency exists
@@ -185,7 +198,7 @@ jobs:
           if [[ "$ja_count" == "0" ]]; then
             echo "No Japanese bundle found in $assets_dir (expected ja-*.js)" >&2
             echo "Files containing 'ja' for debugging:" >&2
-            ls -1 "$assets_dir" | grep -i 'ja' || true
+            find "$assets_dir" -maxdepth 1 -type f -iname '*ja*' -exec basename {} \; || true
             exit 1
           fi
 
