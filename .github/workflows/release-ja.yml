@@ -140,17 +140,34 @@ jobs:
             echo "No compatible editor-ui patch found. Skip patch apply."
           fi
 
-      - name: Build vitest config package
-        run: pnpm --filter @n8n/vitest-config build
+      - name: Ensure HtmlEditor dependency exists
+        run: |
+          set -euo pipefail
+          workspace_pkg_dir="$GITHUB_WORKSPACE/n8n/packages/frontend/@n8n/codemirror-lang-html"
+          editor_ui_pkg="${{ steps.editorui.outputs.dir }}/package.json"
+
+          if [[ ! -f "$editor_ui_pkg" ]]; then
+            echo "editor-ui package.json not found at: $editor_ui_pkg"
+            exit 1
+          fi
+
+          if [[ ! -d "$workspace_pkg_dir" ]]; then
+            echo "Workspace package not found: $workspace_pkg_dir"
+            echo "Skip fallback install for @n8n/codemirror-lang-html"
+            exit 0
+          fi
+
+          if grep -q '"@n8n/codemirror-lang-html"' "$editor_ui_pkg"; then
+            echo "@n8n/codemirror-lang-html is already declared in editor-ui dependencies"
+            exit 0
+          fi
+
+          pnpm --filter n8n-editor-ui add @n8n/codemirror-lang-html@workspace:* --no-frozen-lockfile
         working-directory: n8n
 
-      - name: Build n8n-workflow package
-        run: pnpm --filter n8n-workflow... build
+      - name: Build editor-ui with dependencies
+        run: pnpm --filter n8n-editor-ui... build
         working-directory: n8n
-
-      - name: Build editor-ui
-        run: pnpm build
-        working-directory: ${{ steps.editorui.outputs.dir }}
 
       - name: Export editor-ui-dist
         run: |
@@ -163,12 +180,14 @@ jobs:
           tar -czf editor-ui.tar.gz editor-ui-dist
 
       - name: Log in to Docker Hub
+        if: ${{ !env.ACT }}
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push ja image
+        if: ${{ !env.ACT }}
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -181,6 +200,7 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/n8n-ja:latest-ja
 
       - name: Create and push git tag
+        if: ${{ !env.ACT }}
         run: |
           set -euo pipefail
           git config user.name "github-actions"
@@ -189,6 +209,7 @@ jobs:
           git push origin "${{ steps.tag.outputs.tag }}"
 
       - name: Create GitHub release
+        if: ${{ !env.ACT }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
