@@ -23,17 +23,40 @@ jobs:
         id: version
         run: |
           set -euo pipefail
+
           if [[ -f .n8n-upstream-version ]]; then
-            version=$(cat .n8n-upstream-version | tr -d '[:space:]')
+            raw=$(cat .n8n-upstream-version | tr -d '[:space:]')
           else
-            version=$(grep -E '^\s*image:\s*n8nio/n8n:' docker-compose.yml | sed -E 's#^\s*image:\s*n8nio/n8n:##')
+            raw=$(grep -E '^\s*image:\s*n8nio/n8n:' docker-compose.yml | sed -E 's#^\s*image:\s*n8nio/n8n:##')
           fi
 
-          if [[ -z "$version" ]]; then
-            echo "Unable to resolve n8n version"
-            exit 1
+          raw="$(echo "$raw" | tr -d '[:space:]')"
+
+          if [[ "$raw" =~ ^n8n@[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            tag="$raw"
+            version="${raw#n8n@}"
+          elif [[ "$raw" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            version="$raw"
+            tag="n8n@$version"
+          else
+            # Fallback: resolve a concrete stable tag when raw is "latest" etc.
+            tag=$(curl -fsSL "https://api.github.com/repos/n8n-io/n8n/releases?per_page=100" \
+              | jq -r '[.[] | .tag_name | select(test("^n8n@[0-9]+\\.[0-9]+\\.[0-9]+$"))][0]')
+
+            if [[ -z "$tag" || "$tag" == "null" ]]; then
+              tag=$(curl -fsSL "https://api.github.com/repos/n8n-io/n8n/tags?per_page=100" \
+                | jq -r '[.[].name | select(test("^n8n@[0-9]+\\.[0-9]+\\.[0-9]+$"))][0]')
+            fi
+
+            if [[ -z "$tag" || "$tag" == "null" ]]; then
+              echo "Unable to resolve a concrete n8n tag"
+              exit 1
+            fi
+
+            version="${tag#n8n@}"
           fi
 
+          echo "n8n_tag=$tag" >> "$GITHUB_OUTPUT"
           echo "n8n_version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Compute ja release tag
@@ -68,7 +91,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           repository: n8n-io/n8n
-          ref: n8n@${{ steps.version.outputs.n8n_version }}
+          ref: ${{ steps.version.outputs.n8n_tag }}
           path: n8n
 
       - name: Install n8n dependencies
