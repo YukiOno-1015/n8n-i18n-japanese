@@ -144,6 +144,10 @@ jobs:
         run: pnpm --filter @n8n/vitest-config build
         working-directory: n8n
 
+      - name: Build n8n-workflow package
+        run: pnpm --filter n8n-workflow build
+        working-directory: n8n
+
       - name: Build editor-ui
         run: pnpm build
         working-directory: ${{ steps.editorui.outputs.dir }}
