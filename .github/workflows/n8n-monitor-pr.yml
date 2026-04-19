@@ -15,21 +15,32 @@ jobs:
 
         steps:
             - name: Checkout repository
-              uses: actions/checkout@v4
+              uses: actions/checkout@v5
 
-            - name: Get latest n8n release tag
+            - name: Resolve latest n8n version tag
               id: latest
               run: |
                   set -euo pipefail
-                  tag=$(curl -s https://api.github.com/repos/n8n-io/n8n/releases/latest | jq -r '.tag_name')
+
+                  # Prefer a concrete stable release tag (n8n@x.y.z).
+                  tag=$(curl -fsSL "https://api.github.com/repos/n8n-io/n8n/releases?per_page=100" \
+                    | jq -r '[.[] | .tag_name | select(test("^n8n@[0-9]+\\.[0-9]+\\.[0-9]+$"))][0]')
+
+                  # Fallback for API/ranking anomalies.
                   if [[ -z "$tag" || "$tag" == "null" ]]; then
-                    echo "Failed to fetch latest n8n release tag"
+                    tag=$(curl -fsSL "https://api.github.com/repos/n8n-io/n8n/tags?per_page=100" \
+                      | jq -r '[.[].name | select(test("^n8n@[0-9]+\\.[0-9]+\\.[0-9]+$"))][0]')
+                  fi
+
+                  if [[ -z "$tag" || "$tag" == "null" ]]; then
+                    echo "Failed to resolve a concrete n8n release tag"
                     exit 1
                   fi
+
                   version="${tag#n8n@}"
                   echo "tag=$tag" >> "$GITHUB_OUTPUT"
                   echo "version=$version" >> "$GITHUB_OUTPUT"
-                  echo "Latest n8n tag: $tag"
+                  echo "Resolved n8n tag: $tag"
 
             - name: Skip if release already published
               id: already_done
@@ -45,7 +56,7 @@ jobs:
 
             - name: Setup Node.js
               if: steps.already_done.outputs.skip == 'false'
-              uses: actions/setup-node@v4
+              uses: actions/setup-node@v5
               with:
                   node-version: 20.x
 
@@ -58,7 +69,7 @@ jobs:
 
             - name: Checkout n8n source
               if: steps.already_done.outputs.skip == 'false'
-              uses: actions/checkout@v4
+              uses: actions/checkout@v5
               with:
                   repository: n8n-io/n8n
                   ref: ${{ steps.latest.outputs.tag }}

@@ -15,7 +15,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -54,7 +54,7 @@ jobs:
           echo "release_name=n8n ${{ steps.version.outputs.n8n_version }} 日本語化 ${full_tag}" >> "$GITHUB_OUTPUT"
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 20.x
 
@@ -65,7 +65,7 @@ jobs:
           corepack enable
 
       - name: Checkout n8n source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: n8n-io/n8n
           ref: n8n@${{ steps.version.outputs.n8n_version }}
