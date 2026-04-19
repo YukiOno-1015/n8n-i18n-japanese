@@ -1,19 +1,28 @@
-Subject: [PATCH] fix: When translation is needed, the page console prompts null data.
----
-Index: packages/frontend/editor-ui/src/components/CredentialEdit/CredentialConfig.vue
-IDEA additional info:
-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
-<+>UTF-8
-===================================================================
-diff --git a/packages/frontend/editor-ui/src/components/CredentialEdit/CredentialConfig.vue b/packages/frontend/editor-ui/src/components/CredentialEdit/CredentialConfig.vue
---- a/packages/frontend/editor-ui/src/components/CredentialEdit/CredentialConfig.vue	(revision d2dd1796a871ee41681acc44ad01dfb0bbd5eee1)
-+++ b/packages/frontend/editor-ui/src/components/CredentialEdit/CredentialConfig.vue	(date 1741319010499)
-@@ -96,6 +96,8 @@
- 		props.credentialType.name,
- 	);
+diff --git a/packages/frontend/editor-ui/src/app/App.vue b/packages/frontend/editor-ui/src/app/App.vue
+--- a/packages/frontend/editor-ui/src/app/App.vue
++++ b/packages/frontend/editor-ui/src/app/App.vue
+@@ -19,8 +19,10 @@
+ import { useSettingsStore } from '@/app/stores/settings.store';
+ import LoadingView from '@/app/views/LoadingView.vue';
+ import { locale } from '@n8n/design-system';
+-import { setLanguage } from '@n8n/i18n';
++import { loadLanguage, setLanguage } from '@n8n/i18n';
++import type { LocaleMessages } from '@n8n/i18n';
+ // Note: no need to import en.json here; default 'en' is handled via setLanguage
++import japaneseBaseText from '@n8n/i18n/locales/ja.json';
+ import { useRootStore } from '@n8n/stores/useRootStore';
+ import axios from 'axios';
+ import { computed, onMounted, ref, watch } from 'vue';
+@@ -97,7 +99,11 @@
+ watch(
+ 	defaultLocale,
+ 	async (newLocale) => {
+-		setLanguage(newLocale);
++		if (newLocale === 'ja') {
++			loadLanguage('ja', japaneseBaseText as unknown as LocaleMessages);
++		} else {
++			setLanguage(newLocale);
++		}
  
-+	if (!credTranslation) return;
-+
- 	addCredentialTranslation(
- 		{ [props.credentialType.name]: credTranslation },
- 		rootStore.defaultLocale,
+ 		axios.defaults.headers.common['Accept-Language'] = newLocale;
+ 

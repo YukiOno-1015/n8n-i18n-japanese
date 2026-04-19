@@ -94,6 +94,14 @@ jobs:
           ref: ${{ steps.latest.outputs.tag }}
           path: n8n
 
+      - name: Auto refresh editor-ui patch
+        if: steps.already_done.outputs.skip == 'false'
+        run: |
+          set -euo pipefail
+          bash "$GITHUB_WORKSPACE/script/update-editor-ui-patch.sh" \
+            "$GITHUB_WORKSPACE/n8n" \
+            "$GITHUB_WORKSPACE/fix_editor-ui.patch"
+
       - name: Install n8n dependencies
         if: steps.already_done.outputs.skip == 'false'
         run: pnpm install --frozen-lockfile
@@ -172,10 +180,12 @@ jobs:
             fixed_new_path="$GITHUB_WORKSPACE/n8n/packages/frontend/editor-ui/src/features/credentials/components/CredentialEdit/CredentialConfig.vue"
             fixed_old_path="$GITHUB_WORKSPACE/n8n/packages/frontend/editor-ui/src/components/CredentialEdit/CredentialConfig.vue"
             legacy_old_path="$GITHUB_WORKSPACE/n8n/packages/editor-ui/src/components/CredentialEdit/CredentialConfig.vue"
+            app_vue_path="$GITHUB_WORKSPACE/n8n/packages/frontend/editor-ui/src/app/App.vue"
 
             if { [[ -f "$fixed_new_path" ]] && grep -Fq 'if (!credTranslation) return;' "$fixed_new_path"; } || \
                { [[ -f "$fixed_old_path" ]] && grep -Fq 'if (!credTranslation) return;' "$fixed_old_path"; } || \
-               { [[ -f "$legacy_old_path" ]] && grep -Fq 'if (!credTranslation) return;' "$legacy_old_path"; }; then
+               { [[ -f "$legacy_old_path" ]] && grep -Fq 'if (!credTranslation) return;' "$legacy_old_path"; } || \
+               { [[ -f "$app_vue_path" ]] && grep -Fq "loadLanguage('ja'" "$app_vue_path"; }; then
               echo "Patch not applied, but upstream already contains the fix."
             else
               echo "No compatible editor-ui patch found and fix was not detected in source." >&2
@@ -274,6 +284,7 @@ jobs:
             - n8n upstream: `${{ steps.latest.outputs.tag }}`
             - `script/en.json` を upstream から同期
             - `languages/ja.json` を再翻訳
+            - `fix_editor-ui.patch` を upstream 構成に合わせて自動更新
             - `editor-ui-dist` を再生成
             - `docker-compose.yml` の n8n イメージタグ更新
             - `.n8n-upstream-version` を更新
