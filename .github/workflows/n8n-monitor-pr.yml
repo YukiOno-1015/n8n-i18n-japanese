@@ -231,7 +231,7 @@ jobs:
           if [[ "$ja_count" == "0" ]]; then
             echo "No Japanese bundle found in $assets_dir (expected ja-*.js)" >&2
             echo "Files containing 'ja' for debugging:" >&2
-            ls -1 "$assets_dir" | grep -i 'ja' || true
+            find "$assets_dir" -maxdepth 1 -type f -iname '*ja*' -exec basename {} \; || true
             exit 1
           fi
 
