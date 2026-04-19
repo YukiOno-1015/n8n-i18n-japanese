@@ -42,10 +42,28 @@ jobs:
                   echo "version=$version" >> "$GITHUB_OUTPUT"
                   echo "Resolved n8n tag: $tag"
 
+            - name: Resolve current tracked n8n version
+              id: current
+              run: |
+                  set -euo pipefail
+                  if [[ -f .n8n-upstream-version ]]; then
+                    current=$(tr -d '[:space:]' < .n8n-upstream-version)
+                  else
+                    current=$(grep -E '^\s*image:\s*n8nio/n8n:' docker-compose.yml | sed -E 's#^\s*image:\s*n8nio/n8n:##' | tr -d '[:space:]')
+                  fi
+                  echo "version=$current" >> "$GITHUB_OUTPUT"
+                  echo "Current tracked n8n version: $current"
+
             - name: Skip if release already published
               id: already_done
               run: |
                   set -euo pipefail
+                  if [[ "${{ steps.current.outputs.version }}" == "${{ steps.latest.outputs.version }}" ]]; then
+                    echo "skip=true" >> "$GITHUB_OUTPUT"
+                    echo "Already tracking latest n8n version: ${{ steps.latest.outputs.version }}"
+                    exit 0
+                  fi
+
                   pattern="${{ steps.latest.outputs.version }}-ja.*"
                   if git ls-remote --tags origin "refs/tags/${pattern}" | grep -q .; then
                     echo "skip=true" >> "$GITHUB_OUTPUT"
@@ -96,6 +114,23 @@ jobs:
                     echo "dir=$old_path" >> "$GITHUB_OUTPUT"
                   fi
 
+            - name: Sync upstream English locale
+              if: steps.already_done.outputs.skip == 'false'
+              run: |
+                  set -euo pipefail
+                  cp "${{ steps.editorui.outputs.dir }}/src/plugins/i18n/locales/en.json" "$GITHUB_WORKSPACE/script/en.json"
+
+            - name: Install translator dependencies
+              if: steps.already_done.outputs.skip == 'false'
+              run: npm ci
+
+            - name: Regenerate Japanese locale
+              if: steps.already_done.outputs.skip == 'false'
+              run: npm run i18n:translate:google
+              env:
+                  GOOGLE_TRANSLATE_CONCURRENCY: "6"
+                  GOOGLE_TRANSLATE_SAVE_EVERY: "50"
+
             - name: Apply Japanese locale and patch
               if: steps.already_done.outputs.skip == 'false'
               run: |
@@ -138,6 +173,8 @@ jobs:
                   body: |
                       ## 概要
                       - n8n upstream: `${{ steps.latest.outputs.tag }}`
+                      - `script/en.json` を upstream から同期
+                      - `languages/ja.json` を再翻訳
                       - `editor-ui-dist` を再生成
                       - `docker-compose.yml` の n8n イメージタグ更新
                       - `.n8n-upstream-version` を更新
