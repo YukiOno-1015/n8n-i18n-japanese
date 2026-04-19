@@ -1,6 +1,7 @@
+---
 name: mainマージ後リリース
 
-on:
+"on":
   push:
     branches:
       - main

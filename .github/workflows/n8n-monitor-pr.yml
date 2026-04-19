@@ -1,6 +1,7 @@
+---
 name: n8n更新監視とPR作成
 
-on:
+"on":
     schedule:
         - cron: "0 * * * *"
     workflow_dispatch:
