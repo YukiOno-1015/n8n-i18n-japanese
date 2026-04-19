@@ -39,21 +39,9 @@ jobs:
             version="$raw"
             tag="n8n@$version"
           else
-            # Fallback: resolve a concrete stable tag when raw is "latest" etc.
-            tag=$(curl -fsSL "https://api.github.com/repos/n8n-io/n8n/releases?per_page=100" \
-              | jq -r '[.[] | .tag_name | select(test("^n8n@[0-9]+\\.[0-9]+\\.[0-9]+$"))][0]')
-
-            if [[ -z "$tag" || "$tag" == "null" ]]; then
-              tag=$(curl -fsSL "https://api.github.com/repos/n8n-io/n8n/tags?per_page=100" \
-                | jq -r '[.[].name | select(test("^n8n@[0-9]+\\.[0-9]+\\.[0-9]+$"))][0]')
-            fi
-
-            if [[ -z "$tag" || "$tag" == "null" ]]; then
-              echo "Unable to resolve a concrete n8n tag"
-              exit 1
-            fi
-
-            version="${tag#n8n@}"
+            echo "Invalid n8n version source: '$raw'"
+            echo "Use explicit version format 'x.y.z' or 'n8n@x.y.z' in .n8n-upstream-version or docker-compose.yml"
+            exit 1
           fi
 
           echo "n8n_tag=$tag" >> "$GITHUB_OUTPUT"
