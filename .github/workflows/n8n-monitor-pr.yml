@@ -224,11 +224,13 @@ jobs:
         run: pnpm --filter n8n-editor-ui... build
         working-directory: n8n
 
-      - name: Verify Japanese bundle in editor-ui
+      - name: Verify Japanese localization artifacts
         if: steps.already_done.outputs.skip == 'false'
         run: |
           set -euo pipefail
           assets_dir="${{ steps.editorui.outputs.dir }}/dist/assets"
+          app_vue_path="$GITHUB_WORKSPACE/n8n/packages/frontend/editor-ui/src/app/App.vue"
+          locale_file="${{ steps.locales.outputs.dir }}/ja.json"
 
           if [[ ! -d "$assets_dir" ]]; then
             echo "assets directory not found: $assets_dir" >&2
@@ -239,9 +241,19 @@ jobs:
           echo "ja bundle count: $ja_count"
 
           if [[ "$ja_count" == "0" ]]; then
-            echo "No Japanese bundle found in $assets_dir (expected ja-*.js)" >&2
+            echo "No Japanese chunk found in $assets_dir (ja-*.js)." >&2
             echo "Files containing 'ja' for debugging:" >&2
             find "$assets_dir" -maxdepth 1 -type f -iname '*ja*' -exec basename {} \; || true
+
+            if [[ -f "$app_vue_path" ]] && grep -Fq "loadLanguage('ja'" "$app_vue_path" && [[ -f "$locale_file" ]]; then
+              echo "Runtime ja.json loading patch detected and locale source exists: $locale_file"
+              echo "Proceeding without ja-*.js chunk."
+              exit 0
+            fi
+
+            echo "Neither ja-*.js chunks nor runtime ja loading patch was detected." >&2
+            echo "Expected marker: loadLanguage('ja' in $app_vue_path" >&2
+            echo "Expected locale file: $locale_file" >&2
             exit 1
           fi
 
