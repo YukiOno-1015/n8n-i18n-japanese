@@ -194,10 +194,21 @@ jobs:
           set -euo pipefail
           rm -rf editor-ui-dist
           cp -r "${{ steps.editorui.outputs.dir }}/dist" editor-ui-dist
+          cp "$GITHUB_WORKSPACE/languages/ja.json" editor-ui-dist/ja.json
       - name: Create editor-ui archive
         run: |
           set -euo pipefail
           tar -czf editor-ui.tar.gz editor-ui-dist
+
+      - name: Verify ja.json in editor-ui archive
+        run: |
+          set -euo pipefail
+          if ! tar -tzf editor-ui.tar.gz | grep -q '^editor-ui-dist/ja.json$'; then
+            echo "ja.json is missing in editor-ui.tar.gz" >&2
+            echo "Archive contents:" >&2
+            tar -tzf editor-ui.tar.gz | head -n 50 >&2
+            exit 1
+          fi
 
       - name: Create GitHub release
         if: ${{ !env.ACT }}
