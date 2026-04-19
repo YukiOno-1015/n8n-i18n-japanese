@@ -228,10 +228,13 @@ jobs:
       - name: Verify ja.json in editor-ui archive
         run: |
           set -euo pipefail
-          if ! tar -tzf editor-ui.tar.gz | grep -q '^editor-ui-dist/ja.json$'; then
+          archive_listing="$RUNNER_TEMP/editor-ui-archive-list.txt"
+          tar -tzf editor-ui.tar.gz > "$archive_listing"
+
+          if ! grep -q '^editor-ui-dist/ja.json$' "$archive_listing"; then
             echo "ja.json is missing in editor-ui.tar.gz" >&2
             echo "Archive contents:" >&2
-            tar -tzf editor-ui.tar.gz | head -n 50 >&2
+            head -n 50 "$archive_listing" >&2
             exit 1
           fi
 
