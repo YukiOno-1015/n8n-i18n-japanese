@@ -102,10 +102,29 @@ jobs:
             echo "dir=$old_path" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Resolve locale directory
+        id: locales
+        run: |
+          set -euo pipefail
+          modern_locale_path="$GITHUB_WORKSPACE/n8n/packages/frontend/@n8n/i18n/src/locales"
+          new_locale_path="${{ steps.editorui.outputs.dir }}/src/plugins/i18n/locales"
+          old_locale_path="$GITHUB_WORKSPACE/n8n/packages/editor-ui/src/plugins/i18n/locales"
+
+          if [[ -d "$modern_locale_path" ]]; then
+            echo "dir=$modern_locale_path" >> "$GITHUB_OUTPUT"
+          elif [[ -d "$new_locale_path" ]]; then
+            echo "dir=$new_locale_path" >> "$GITHUB_OUTPUT"
+          elif [[ -d "$old_locale_path" ]]; then
+            echo "dir=$old_locale_path" >> "$GITHUB_OUTPUT"
+          else
+            echo "Unable to find locale directory in checked out n8n source" >&2
+            exit 1
+          fi
+
       - name: Apply Japanese locale and patch
         run: |
           set -euo pipefail
-          cp -r "$GITHUB_WORKSPACE/languages"/* "${{ steps.editorui.outputs.dir }}/src/plugins/i18n/locales/"
+          cp -r "$GITHUB_WORKSPACE/languages"/* "${{ steps.locales.outputs.dir }}/"
 
           if [[ "${{ steps.editorui.outputs.flag }}" == "new" ]]; then
             git -C "$GITHUB_WORKSPACE/n8n" apply "$GITHUB_WORKSPACE/fix_editor-ui.patch"
