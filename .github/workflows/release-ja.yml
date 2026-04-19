@@ -137,7 +137,18 @@ jobs:
           done
 
           if [[ "$patch_applied" == "false" ]]; then
-            echo "No compatible editor-ui patch found. Skip patch apply."
+            fixed_new_path="$GITHUB_WORKSPACE/n8n/packages/frontend/editor-ui/src/features/credentials/components/CredentialEdit/CredentialConfig.vue"
+            fixed_old_path="$GITHUB_WORKSPACE/n8n/packages/frontend/editor-ui/src/components/CredentialEdit/CredentialConfig.vue"
+            legacy_old_path="$GITHUB_WORKSPACE/n8n/packages/editor-ui/src/components/CredentialEdit/CredentialConfig.vue"
+
+            if { [[ -f "$fixed_new_path" ]] && grep -Fq 'if (!credTranslation) return;' "$fixed_new_path"; } || \
+               { [[ -f "$fixed_old_path" ]] && grep -Fq 'if (!credTranslation) return;' "$fixed_old_path"; } || \
+               { [[ -f "$legacy_old_path" ]] && grep -Fq 'if (!credTranslation) return;' "$legacy_old_path"; }; then
+              echo "Patch not applied, but upstream already contains the fix."
+            else
+              echo "No compatible editor-ui patch found and fix was not detected in source." >&2
+              exit 1
+            fi
           fi
 
       - name: Ensure HtmlEditor dependency exists
