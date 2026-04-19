@@ -169,6 +169,26 @@ jobs:
         run: pnpm --filter n8n-editor-ui... build
         working-directory: n8n
 
+      - name: Verify Japanese bundle in editor-ui
+        run: |
+          set -euo pipefail
+          assets_dir="${{ steps.editorui.outputs.dir }}/dist/assets"
+
+          if [[ ! -d "$assets_dir" ]]; then
+            echo "assets directory not found: $assets_dir" >&2
+            exit 1
+          fi
+
+          ja_count=$(find "$assets_dir" -maxdepth 1 -type f -name 'ja-*.js' | wc -l | tr -d '[:space:]')
+          echo "ja bundle count: $ja_count"
+
+          if [[ "$ja_count" == "0" ]]; then
+            echo "No Japanese bundle found in $assets_dir (expected ja-*.js)" >&2
+            echo "Files containing 'ja' for debugging:" >&2
+            ls -1 "$assets_dir" | grep -i 'ja' || true
+            exit 1
+          fi
+
       - name: Export editor-ui-dist
         run: |
           set -euo pipefail
