@@ -290,7 +290,7 @@ jobs:
       - name: Create Pull Request
         if: steps.already_done.outputs.skip == 'false'
         id: cpr
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v8
         with:
           branch: auto/n8n-${{ steps.latest.outputs.version }}-ja
           title: "chore: n8n ${{ steps.latest.outputs.version }} 日本語化更新"
