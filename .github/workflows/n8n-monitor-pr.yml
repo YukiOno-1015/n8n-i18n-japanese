@@ -143,24 +143,33 @@ jobs:
             exit 1
           fi
 
-      - name: Sync upstream English locale
+      - name: Regenerate Japanese locale (Claude Code)
         if: steps.already_done.outputs.skip == 'false'
-        run: |
-          set -euo pipefail
-          cp "${{ steps.locales.outputs.dir }}/en.json" "$GITHUB_WORKSPACE/script/en.json"
-
-      - name: Install translator dependencies
-        if: steps.already_done.outputs.skip == 'false'
-        run: npm ci
-
-      - name: Regenerate Japanese locale
-        if: steps.already_done.outputs.skip == 'false'
-        run: npm run i18n:translate:google
-        env:
-          GOOGLE_TRANSLATE_CONCURRENCY: "6"
-          GOOGLE_TRANSLATE_SAVE_EVERY: "50"
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            n8n の英語ロケールを日本語へ追従翻訳するタスク。
+            - 最新の英語ロケール: ${{ steps.locales.outputs.dir }}/en.json
+            - 旧英語ロケール（前回追従時点・リポジトリ内）: script/en.json
+            - 現在の日本語ロケール: languages/ja.json
+            手順:
+            1. 最新英語と旧英語を比較し、新規キーと値が変わったキーを特定する
+               （script/en.json が無い場合は全キーを新規とみなす）。
+            2. languages/ja.json に存在しないキー、または英語が変更されたキーのみ
+               日本語へ翻訳する。既存の訳はそのまま保持する。
+            3. languages/ja.json を最新英語のキー順に並べ替えて上書きする。
+            4. script/en.json を最新英語ロケールの内容で上書きする。
+            UI 文言として自然な日本語にし、プレースホルダ（{name} や {{count}} 等）と
+            HTML タグはそのまま保持すること。
+            languages/ja.json と script/en.json の2ファイルのみを編集し、
+            git の commit / push やブランチ作成はしないこと。
+          claude_args: |
+            --max-turns 60
+            --allowedTools "Read,Write,Edit,Glob,Grep"
 
       - name: Apply Japanese locale and patch
+        id: apply
         if: steps.already_done.outputs.skip == 'false'
         run: |
           set -euo pipefail
@@ -188,9 +197,46 @@ jobs:
                { [[ -f "$app_vue_path" ]] && grep -Fq "loadLanguage('ja'" "$app_vue_path"; }; then
               echo "Patch not applied, but upstream already contains the fix."
             else
-              echo "No compatible editor-ui patch found and fix was not detected in source." >&2
-              exit 1
+              echo "No compatible editor-ui patch found; will attempt Claude Code repair." >&2
+              echo "patch_repair_needed=true" >> "$GITHUB_OUTPUT"
+              exit 0
             fi
+          fi
+
+          echo "patch_repair_needed=false" >> "$GITHUB_OUTPUT"
+
+      - name: Repair editor-ui patch (Claude Code)
+        if: steps.already_done.outputs.skip == 'false' && steps.apply.outputs.patch_repair_needed == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            fix_editor-ui.patch が ${{ github.workspace }}/n8n の editor-ui ソースへ
+            適用できなかった。このパッチの目的は、editor-ui がランタイムで
+            languages/ja.json を読み込めるようにする App.vue 等の改変
+            （ソース内マーカー: loadLanguage('ja' ）。
+            手順:
+            1. fix_editor-ui.patch の意図と、現在の n8n editor-ui のディレクトリ構成を
+               調査する（上流でファイルが移動・改名された可能性がある）。
+            2. 同じ意図の変更を現行構成へ適用できるよう、リポジトリルートの
+               fix_editor-ui.patch を再生成して上書きする。
+            3. `git -C n8n apply --check fix_editor-ui.patch` が成功することを確認する。
+            リポジトリルートの fix_editor-ui.patch のみを編集し、
+            git の commit / push やブランチ作成はしないこと。
+          claude_args: |
+            --max-turns 80
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(find:*),Bash(grep:*),Bash(cat:*),Bash(ls:*)"
+
+      - name: Re-apply repaired editor-ui patch
+        if: steps.already_done.outputs.skip == 'false' && steps.apply.outputs.patch_repair_needed == 'true'
+        run: |
+          set -euo pipefail
+          if git -C "$GITHUB_WORKSPACE/n8n" apply --check "$GITHUB_WORKSPACE/fix_editor-ui.patch" >/dev/null 2>&1; then
+            git -C "$GITHUB_WORKSPACE/n8n" apply "$GITHUB_WORKSPACE/fix_editor-ui.patch"
+            echo "Applied repaired patch: fix_editor-ui.patch"
+          else
+            echo "Claude Code repair did not produce an applicable patch." >&2
+            exit 1
           fi
 
       - name: Ensure HtmlEditor dependency exists
