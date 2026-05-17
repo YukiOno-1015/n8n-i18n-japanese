@@ -12,8 +12,8 @@ diff --git a/packages/frontend/editor-ui/src/app/App.vue b/packages/frontend/edi
 +import japaneseBaseText from '@n8n/i18n/locales/ja.json';
  import { useRootStore } from '@n8n/stores/useRootStore';
  import axios from 'axios';
- import { computed, onMounted, ref, watch } from 'vue';
-@@ -97,7 +99,11 @@
+ import { computed, onMounted, provide, ref, shallowRef, watch } from 'vue';
+@@ -107,7 +109,11 @@
  watch(
  	defaultLocale,
  	async (newLocale) => {
