@@ -307,6 +307,12 @@ jobs:
             ## 検証
             - PR checks (format check / n8n smoke test) で確認します。
           commit-message: "chore: n8n ${{ steps.latest.outputs.version }} 日本語化更新"
+          add-paths: |
+            .n8n-upstream-version
+            docker-compose.yml
+            fix_editor-ui.patch
+            languages/ja.json
+            script/en.json
           delete-branch: true
           labels: |
             automated

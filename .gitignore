@@ -18,4 +18,8 @@ pnpm-debug.log*
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# n8n CI build artifacts
 editor-ui.tar.gz
+editor-ui-dist/
+n8n/
