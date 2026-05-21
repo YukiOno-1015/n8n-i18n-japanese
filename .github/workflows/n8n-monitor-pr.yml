@@ -149,6 +149,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt: |
             n8n の英語ロケールを日本語へ追従翻訳するタスク。
             - 最新の英語ロケール: ${{ steps.locales.outputs.dir }}/en.json
@@ -211,6 +212,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt: |
             fix_editor-ui.patch が ${{ github.workspace }}/n8n の editor-ui ソースへ
             適用できなかった。このパッチの目的は、editor-ui がランタイムで
