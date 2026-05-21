@@ -9,6 +9,7 @@ name: n8n更新監視とPR作成
 permissions:
   contents: write
   pull-requests: write
+  id-token: write
 
 jobs:
   detect-and-pr:
