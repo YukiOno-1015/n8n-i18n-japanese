@@ -1,0 +1,33 @@
+docker-compose.yml
+  s_3df1071de9632b::t_e188fb1f70dc68 10-12
+docs/claude-code-cli.md
+  s_3df1071de9632b::t_9a5e6c444f75e7 1-161
+.github/workflows/release-ja.yml
+  s_3df1071de9632b::t_86f69187201fc5 350
+  s_3df1071de9632b::t_dd776fa2d2d8e0 111-119,121,124
+Dockerfile.n8n-ja
+  s_3df1071de9632b::t_8ec1dcc506263f 39-47
+  s_3df1071de9632b::t_209a82b61eb681 30
+  s_3df1071de9632b::t_023c034d59ebf5 19-25,32,34,50
+  s_3df1071de9632b::t_d840c4a7b1af95 26-29,31,33,35-38,48-49
+docs/fork-differences.md
+  s_3df1071de9632b::t_2e6f784612c47e 1-81
+README.md
+  s_3df1071de9632b::t_2d5318cad2cd56 12-16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "4c98905be07a30d58dda4dc98213dd8d86926661",
+  "prompts": {},
+  "sessions": {
+    "s_3df1071de9632b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "250cf05e-2b3d-4220-a23e-d1dadbc29e89",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "YukiOno-1015 <sk4869pw4869@gmail.com>"
+    }
+  }
+}
