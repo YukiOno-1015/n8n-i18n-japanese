@@ -13,7 +13,7 @@ diff --git a/packages/frontend/editor-ui/src/app/App.vue b/packages/frontend/edi
  import { useRootStore } from '@n8n/stores/useRootStore';
  import axios from 'axios';
  import { computed, onMounted, provide, ref, shallowRef, watch } from 'vue';
-@@ -83,7 +85,11 @@
+@@ -81,7 +83,11 @@
  watch(
  	defaultLocale,
  	async (newLocale) => {
