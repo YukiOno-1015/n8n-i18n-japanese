@@ -144,31 +144,117 @@ jobs:
             exit 1
           fi
 
-      - name: Regenerate Japanese locale (Claude Code)
+      - name: Build translation worklist
         if: steps.already_done.outputs.skip == 'false'
+        id: worklist
+        run: |
+          set -euo pipefail
+          work_dir="$GITHUB_WORKSPACE/.l10n-work"
+          mkdir -p "$work_dir"
+          new_en="${{ steps.locales.outputs.dir }}/en.json"
+          old_en="$GITHUB_WORKSPACE/script/en.json"
+
+          # 旧英語が無ければ全キーを新規扱い（空オブジェクトと比較）。
+          old_src="$old_en"
+          if [[ ! -f "$old_en" ]]; then
+            echo '{}' > "$work_dir/old_en.json"
+            old_src="$work_dir/old_en.json"
+          fi
+
+          # 追加キー・値変更キーのみを {JSONエンコードしたパス: 英語原文} で抽出。
+          jq -n --slurpfile en "$new_en" --slurpfile old "$old_src" '
+            ($en[0]) as $EN | ($old[0] // {}) as $O
+            | reduce ($EN | paths(scalars)) as $p ({};
+                (try ($O | getpath($p)) catch null) as $ov
+                | ($EN | getpath($p)) as $nv
+                | if ($ov == null) or ($ov != $nv) then .[$p | tojson] = $nv else . end)
+          ' > "$work_dir/to_translate.json"
+
+          count=$(jq 'length' "$work_dir/to_translate.json")
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "Keys needing translation: $count"
+
+      - name: Translate locale diff (Claude Code)
+        if: steps.already_done.outputs.skip == 'false' && steps.worklist.outputs.count != '0'
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt: |
-            n8n の英語ロケールを日本語へ追従翻訳するタスク。
-            - 最新の英語ロケール: ${{ steps.locales.outputs.dir }}/en.json
-            - 旧英語ロケール（前回追従時点・リポジトリ内）: script/en.json
-            - 現在の日本語ロケール: languages/ja.json
+            n8n の UI 文言を英語から日本語へ翻訳するタスク。
+            入力ファイル: .l10n-work/to_translate.json
+              （JSON オブジェクト。各エントリは "不透明なキー": "英語原文"）
+            出力ファイル: .l10n-work/translated.json
             手順:
-            1. 最新英語と旧英語を比較し、新規キーと値が変わったキーを特定する
-               （script/en.json が無い場合は全キーを新規とみなす）。
-            2. languages/ja.json に存在しないキー、または英語が変更されたキーのみ
-               日本語へ翻訳する。既存の訳はそのまま保持する。
-            3. languages/ja.json を最新英語のキー順に並べ替えて上書きする。
-            4. script/en.json を最新英語ロケールの内容で上書きする。
-            UI 文言として自然な日本語にし、プレースホルダ（{name} や {{count}} 等）と
-            HTML タグはそのまま保持すること。
-            languages/ja.json と script/en.json の2ファイルのみを編集し、
-            git の commit / push やブランチ作成はしないこと。
+            1. .l10n-work/to_translate.json を読む。
+            2. 各エントリの英語原文を、UI 文言として自然な日本語へ翻訳する。
+            3. キーは一字一句そのまま（変更・整形・並べ替え禁止）、値だけを
+               日本語に置き換えた JSON オブジェクトを .l10n-work/translated.json に書く。
+               入力と出力のキー集合は完全一致させ、全エントリを漏れなく翻訳する。
+            プレースホルダ（{name} や {{count}} 等）と HTML タグはそのまま保持する。
+            .l10n-work/translated.json のみを作成・編集し、他のファイルや
+            git の commit / push・ブランチ作成はしないこと。
           claude_args: |
             --max-turns 60
             --allowedTools "Read,Write,Edit,Glob,Grep"
+
+      - name: Validate translations
+        if: steps.already_done.outputs.skip == 'false' && steps.worklist.outputs.count != '0'
+        run: |
+          set -euo pipefail
+          work_dir="$GITHUB_WORKSPACE/.l10n-work"
+          if [[ ! -f "$work_dir/translated.json" ]]; then
+            echo "translated.json was not produced by Claude Code" >&2
+            exit 1
+          fi
+
+          # 入力キーのうち、翻訳が欠落 or 空のものを列挙。
+          missing=$(jq -n \
+            --slurpfile s "$work_dir/to_translate.json" \
+            --slurpfile t "$work_dir/translated.json" '
+            ($s[0] | keys_unsorted) as $sk | ($t[0]) as $T
+            | [ $sk[] | select(($T[.] | type) != "string" or ($T[.] | length) == 0) ]')
+
+          n=$(echo "$missing" | jq 'length')
+          if [[ "$n" != "0" ]]; then
+            echo "Untranslated or missing keys: $n" >&2
+            echo "$missing" | jq -r '.[0:20][]' >&2
+            exit 1
+          fi
+          echo "All ${{ steps.worklist.outputs.count }} keys translated."
+
+      - name: Merge translations into locale
+        if: steps.already_done.outputs.skip == 'false'
+        run: |
+          set -euo pipefail
+          work_dir="$GITHUB_WORKSPACE/.l10n-work"
+          new_en="${{ steps.locales.outputs.dir }}/en.json"
+          ja_file="$GITHUB_WORKSPACE/languages/ja.json"
+          tr_file="$work_dir/translated.json"
+
+          # 差分が無い場合（翻訳ステップ未実行）は空の翻訳で扱う。
+          [[ -f "$tr_file" ]] || echo '{}' > "$tr_file"
+
+          # 最新英語のキー順・構造を基準に ja.json を再構築する。
+          # 優先順位: 今回の翻訳 > 既存の日本語訳 > （万一の欠落時）英語原文。
+          # 上流で削除されたキーは最新英語に無いので自然に除外される。
+          jq -n \
+            --slurpfile en "$new_en" \
+            --slurpfile cur "$ja_file" \
+            --slurpfile tr "$tr_file" '
+            ($en[0]) as $EN | ($cur[0]) as $C | ($tr[0]) as $T
+            | reduce ($EN | paths(scalars)) as $p ({};
+                ($T[$p | tojson]) as $tv
+                | (try ($C | getpath($p)) catch null) as $cv
+                | setpath($p;
+                    if $tv != null then $tv
+                    elif $cv != null then $cv
+                    else ($EN | getpath($p)) end))
+          ' > "$work_dir/ja_merged.json"
+
+          mv "$work_dir/ja_merged.json" "$ja_file"
+          cp "$new_en" "$GITHUB_WORKSPACE/script/en.json"
+          echo "Merged ja.json keys: $(jq '[paths(scalars)] | length' "$ja_file")"
 
       - name: Apply Japanese locale and patch
         id: apply
