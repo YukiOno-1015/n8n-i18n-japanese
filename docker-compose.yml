@@ -7,6 +7,9 @@ services:
     environment:
       - N8N_DEFAULT_LOCALE=ja
       - N8N_SECURE_COOKIE=false
+      # Claude Code CLI 認証（n8n-ja イメージ使用時。どちらか一方を .env で指定）
+      # - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      # - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN}
     volumes:
       - ./editor-ui-dist:/usr/local/lib/node_modules/n8n/node_modules/n8n-editor-ui/dist
     stdin_open: true

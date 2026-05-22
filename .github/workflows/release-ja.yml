@@ -108,13 +108,20 @@ jobs:
 
           prev_tag="${base}.${latest}"
 
-          # 既存リリース以降 languages/ja.json に変化が無ければ重複リリースを抑止。
-          if git diff --quiet "refs/tags/${prev_tag}" HEAD -- languages/ja.json; then
+          # 公開イメージに影響するビルド入力（翻訳・パッチ・バージョン・Dockerfile）が
+          # 既存リリース以降いずれも未変更なら、重複リリースを抑止する。
+          release_inputs=(
+            languages/ja.json
+            fix_editor-ui.patch
+            .n8n-upstream-version
+            Dockerfile.n8n-ja
+          )
+          if git diff --quiet "refs/tags/${prev_tag}" HEAD -- "${release_inputs[@]}"; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "languages/ja.json unchanged since ${prev_tag}; skipping redundant release."
+            echo "Release inputs unchanged since ${prev_tag}; skipping redundant release."
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
-            echo "languages/ja.json changed since ${prev_tag}; proceeding."
+            echo "Release inputs changed since ${prev_tag}; proceeding."
           fi
 
   release:
@@ -340,6 +347,7 @@ jobs:
           build-args: |
             N8N_VERSION=${{ needs.guard.outputs.n8n_version }}
             EDITOR_UI_ARCHIVE_URL=https://github.com/${{ github.repository }}/releases/download/${{ needs.guard.outputs.ja_tag }}/editor-ui.tar.gz
+            INSTALL_CLAUDE_CODE=true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/n8n-ja:${{ needs.guard.outputs.ja_tag }}
             ${{ secrets.DOCKERHUB_USERNAME }}/n8n-ja:latest-ja
