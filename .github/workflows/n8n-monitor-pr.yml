@@ -11,9 +11,14 @@ permissions:
   pull-requests: write
   id-token: write
 
+concurrency:
+  group: n8n-monitor
+  cancel-in-progress: false
+
 jobs:
   detect-and-pr:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     steps:
       - name: Checkout repository
@@ -176,6 +181,7 @@ jobs:
 
       - name: Translate locale diff (Claude Code)
         if: steps.already_done.outputs.skip == 'false' && steps.worklist.outputs.count != '0'
+        timeout-minutes: 30
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -295,6 +301,7 @@ jobs:
 
       - name: Repair editor-ui patch (Claude Code)
         if: steps.already_done.outputs.skip == 'false' && steps.apply.outputs.patch_repair_needed == 'true'
+        timeout-minutes: 30
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

@@ -1,0 +1,79 @@
+---
+name: 失敗ワークフローの自動診断・修復
+
+"on":
+  workflow_run:
+    workflows:
+      - n8n更新監視とPR作成
+      - mainマージ後リリース
+    types:
+      - completed
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: read
+  id-token: write
+
+concurrency:
+  group: auto-heal
+  cancel-in-progress: false
+
+jobs:
+  diagnose-and-fix:
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Diagnose failure and open fix PR (Claude Code)
+        timeout-minutes: 35
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.RELEASE_PAT }}
+          prompt: |
+            GitHub Actions のワークフローが失敗した。原因を診断し、可能なら
+            修正 PR を自動作成するタスク。
+
+            失敗ラン情報:
+            - ワークフロー名: ${{ github.event.workflow_run.name }}
+            - run id: ${{ github.event.workflow_run.id }}
+            - ブランチ: ${{ github.event.workflow_run.head_branch }}
+            - URL: ${{ github.event.workflow_run.html_url }}
+
+            手順:
+            1. `gh run view ${{ github.event.workflow_run.id }} --log-failed`
+               で失敗ログを取得し、根本原因を特定する。
+            2. ラベル auto-heal が無ければ
+               `gh label create auto-heal -c FBCA04 -d "自動診断・修復"` で作成する。
+            3. 同種の失敗に対する未対応の修正 PR / issue（ラベル auto-heal）が
+               既に無いか `gh pr list --label auto-heal --state open` と
+               `gh issue list --label auto-heal --state open` で確認する。
+               既にあれば重複を作らず終了する。
+            4. 原因がリポジトリ内のコード・ワークフロー・スクリプトの不具合で
+               機械的に修正可能なら:
+               - ブランチ auto-heal/${{ github.event.workflow_run.id }} を作成する。
+               - 最小限の修正を行う（主に .github/workflows や script 配下）。
+               - コミットし、`gh pr create --label auto-heal` で PR を作成する。
+                 本文に「対象 run の URL・根本原因・修正内容」を記載する。
+               - PR は自動マージしない（人間のレビュー前提）。
+            5. 原因が外部要因（n8n 上流の障害、ネットワーク、API レート制限、
+               シークレット未設定など）で機械的修正が不適切なら、
+               `gh issue create --label auto-heal` で原因と対処方針を記載した
+               issue を作成する。
+
+            制約:
+            - ロケールデータ（languages/**, script/en.json）は変更しない。
+            - main への直接 push や既存 PR の自動マージはしない。
+          claude_args: |
+            --max-turns 80
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(gh:*),Bash(git:*),Bash(jq:*),Bash(cat:*),Bash(sed:*),Bash(ls:*),Bash(find:*),Bash(grep:*),Bash(head:*),Bash(tail:*)"
