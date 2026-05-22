@@ -9,6 +9,11 @@
 このリリースには、特定の n8n バージョンに対応した翻訳済み `editor-ui` が `editor-ui.tar.gz` として含まれています。
 これを利用することで、煩雑なビルド作業なしに n8n を日本語で利用開始できます。
 
+## ドキュメント
+
+- [フォーク元との違い](docs/fork-differences.md) — 本フォークがフォーク元から加えた主な変更（翻訳エンジン刷新・CI/CD 完全自動化・配布イメージ等）
+- [Claude Code CLI 同梱イメージ](docs/claude-code-cli.md) — `n8n-ja` イメージへの Claude Code CLI 同梱と、n8n ワークフローからの利用方法
+
 ## 主な機能
 
 - **翻訳済み `editor-ui` の配布 (推奨)**: 最新の n8n リリースに対応した、日本語化済みの `editor-ui` ビルド成果物を [GitHub Releases](https://github.com/nemumusito/n8n-i18n-japanese/releases) で公開しています。

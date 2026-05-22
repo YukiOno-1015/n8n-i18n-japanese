@@ -16,3 +16,35 @@ FROM n8nio/n8n:${N8N_VERSION}
 COPY --from=editor_ui /work/editor-ui-dist /usr/local/lib/node_modules/n8n/node_modules/n8n-editor-ui/dist
 
 ENV N8N_DEFAULT_LOCALE=ja
+
+# --- Claude Code CLI ---
+# n8n ワークフロー（Execute Command ノード等）から `claude` を呼べるよう同梱する。
+# 認証はイメージに焼き込まず、実行時の環境変数で外だしする:
+#   ANTHROPIC_API_KEY        … API トークン方式
+#   CLAUDE_CODE_OAUTH_TOKEN  … サブスク(OAuth)方式（`claude setup-token` で取得）
+# どちらか一方をコンテナ env に渡せば切り替え可能。
+#
+# 同梱可否はビルド時 ARG INSTALL_CLAUDE_CODE で制御（デフォルト false=非同梱）。
+# 同梱した場合も、実行時に認証 env がどちらも無ければ /usr/local/bin/claude の
+# ラッパーが起動を拒否する（env 未設定では動かさない）。
+# ベースは Docker Hardened Image (Alpine) で apk を持たないが node/npm/git は同梱済み。
+# npm のグローバル bin は PATH 外（バージョン依存パス）のため、ラッパー経由で実体を exec する。
+ARG CLAUDE_CODE_VERSION=latest
+ARG INSTALL_CLAUDE_CODE=false
+USER root
+RUN if [ "$INSTALL_CLAUDE_CODE" = "true" ]; then \
+		set -eux; \
+		npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}; \
+		npm cache clean --force; \
+		ln -sf "$(npm prefix -g)/bin/claude" /usr/local/lib/claude-real; \
+		{ \
+			echo '#!/bin/sh'; \
+			echo 'if [ -z "$ANTHROPIC_API_KEY" ] && [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then'; \
+			echo '  echo "claude: 認証用 env (ANTHROPIC_API_KEY / CLAUDE_CODE_OAUTH_TOKEN) が未設定のため起動しません。" >&2'; \
+			echo '  exit 1'; \
+			echo 'fi'; \
+			echo 'exec /usr/local/lib/claude-real "$@"'; \
+		} > /usr/local/bin/claude; \
+		chmod +x /usr/local/bin/claude; \
+	fi
+USER node
