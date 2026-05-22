@@ -427,6 +427,7 @@ jobs:
         id: cpr
         uses: peter-evans/create-pull-request@v8
         with:
+          token: ${{ secrets.RELEASE_PAT }}
           branch: auto/n8n-${{ steps.latest.outputs.version }}-ja
           title: "chore: n8n ${{ steps.latest.outputs.version }} 日本語化更新"
           body: |
@@ -458,5 +459,6 @@ jobs:
           steps.cpr.outputs.pull-request-number != ''
         uses: peter-evans/enable-pull-request-automerge@v3
         with:
+          token: ${{ secrets.RELEASE_PAT }}
           pull-request-number: ${{ steps.cpr.outputs.pull-request-number }}
           merge-method: squash
