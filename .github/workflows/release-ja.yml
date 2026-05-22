@@ -5,15 +5,32 @@ name: mainマージ後リリース
   push:
     branches:
       - main
+    paths:
+      - languages/**
+      - .n8n-upstream-version
+      - docker-compose.yml
+      - Dockerfile.n8n-ja
+      - fix_editor-ui.patch
   workflow_dispatch:
 
 permissions:
   contents: write
   packages: write
 
+concurrency:
+  group: release-ja
+  cancel-in-progress: false
+
 jobs:
-  release:
+  guard:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      skip: ${{ steps.decide.outputs.skip }}
+      n8n_tag: ${{ steps.version.outputs.n8n_tag }}
+      n8n_version: ${{ steps.version.outputs.n8n_version }}
+      ja_tag: ${{ steps.tag.outputs.tag }}
+      release_name: ${{ steps.tag.outputs.release_name }}
 
     steps:
       - name: Checkout repository
@@ -66,6 +83,52 @@ jobs:
           echo "tag=$full_tag" >> "$GITHUB_OUTPUT"
           echo "release_name=n8n ${{ steps.version.outputs.n8n_version }} 日本語化 ${full_tag}" >> "$GITHUB_OUTPUT"
 
+      - name: Decide whether a release is needed
+        id: decide
+        run: |
+          set -euo pipefail
+
+          # 手動実行は常に強制リリース。
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "Manual dispatch: forcing release."
+            exit 0
+          fi
+
+          version="${{ steps.version.outputs.n8n_version }}"
+          base="${version}-ja"
+          latest=$(git tag -l "${base}.*" | sed -E 's#.*-ja\.##' | sort -n | tail -n1)
+
+          # 当該バージョンの既存リリースが無ければ実行。
+          if [[ -z "$latest" ]]; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "No prior ${base} release; proceeding."
+            exit 0
+          fi
+
+          prev_tag="${base}.${latest}"
+
+          # 既存リリース以降 languages/ja.json に変化が無ければ重複リリースを抑止。
+          if git diff --quiet "refs/tags/${prev_tag}" HEAD -- languages/ja.json; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "languages/ja.json unchanged since ${prev_tag}; skipping redundant release."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "languages/ja.json changed since ${prev_tag}; proceeding."
+          fi
+
+  release:
+    needs: guard
+    if: needs.guard.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
@@ -81,7 +144,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           repository: n8n-io/n8n
-          ref: ${{ steps.version.outputs.n8n_tag }}
+          ref: ${{ needs.guard.outputs.n8n_tag }}
           path: n8n
 
       - name: Install n8n dependencies
@@ -243,13 +306,13 @@ jobs:
         if: ${{ !env.ACT }}
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{ steps.tag.outputs.tag }}
+          tag_name: ${{ needs.guard.outputs.ja_tag }}
           target_commitish: ${{ github.sha }}
-          name: ${{ steps.tag.outputs.release_name }}
+          name: ${{ needs.guard.outputs.release_name }}
           body: |
-            n8n `${{ steps.version.outputs.n8n_version }}` 対応の日本語化リリースです。
+            n8n `${{ needs.guard.outputs.n8n_version }}` 対応の日本語化リリースです。
 
-            - Docker image: `${{ secrets.DOCKERHUB_USERNAME }}/n8n-ja:${{ steps.tag.outputs.tag }}`
+            - Docker image: `${{ secrets.DOCKERHUB_USERNAME }}/n8n-ja:${{ needs.guard.outputs.ja_tag }}`
             - `ja.json` を添付
             - `editor-ui.tar.gz` を添付
           draft: false
@@ -275,10 +338,10 @@ jobs:
           file: ./Dockerfile.n8n-ja
           push: true
           build-args: |
-            N8N_VERSION=${{ steps.version.outputs.n8n_version }}
-            EDITOR_UI_ARCHIVE_URL=https://github.com/${{ github.repository }}/releases/download/${{ steps.tag.outputs.tag }}/editor-ui.tar.gz
+            N8N_VERSION=${{ needs.guard.outputs.n8n_version }}
+            EDITOR_UI_ARCHIVE_URL=https://github.com/${{ github.repository }}/releases/download/${{ needs.guard.outputs.ja_tag }}/editor-ui.tar.gz
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/n8n-ja:${{ steps.tag.outputs.tag }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/n8n-ja:${{ needs.guard.outputs.ja_tag }}
             ${{ secrets.DOCKERHUB_USERNAME }}/n8n-ja:latest-ja
 
       - name: Create and push git tag
@@ -288,10 +351,10 @@ jobs:
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
 
-          if git ls-remote --tags origin "refs/tags/${{ steps.tag.outputs.tag }}" | grep -q .; then
-            echo "Tag already exists on origin: ${{ steps.tag.outputs.tag }}"
+          if git ls-remote --tags origin "refs/tags/${{ needs.guard.outputs.ja_tag }}" | grep -q .; then
+            echo "Tag already exists on origin: ${{ needs.guard.outputs.ja_tag }}"
             exit 0
           fi
 
-          git tag "${{ steps.tag.outputs.tag }}"
-          git push origin "${{ steps.tag.outputs.tag }}"
+          git tag "${{ needs.guard.outputs.ja_tag }}"
+          git push origin "${{ needs.guard.outputs.ja_tag }}"
