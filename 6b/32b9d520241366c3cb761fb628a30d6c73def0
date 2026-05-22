@@ -1,0 +1,19 @@
+README.md
+  s_3df1071de9632b::t_9ba9e81c4a9c32 7,19,28,36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "6b32b9d520241366c3cb761fb628a30d6c73def0",
+  "prompts": {},
+  "sessions": {
+    "s_3df1071de9632b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "250cf05e-2b3d-4220-a23e-d1dadbc29e89",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "YukiOno-1015 <sk4869pw4869@gmail.com>"
+    }
+  }
+}
