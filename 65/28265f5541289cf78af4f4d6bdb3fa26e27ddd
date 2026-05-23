@@ -1,0 +1,22 @@
+Dockerfile.n8n-ja
+  s_0c57afa1d46a64::t_9353a94a48a55d 9
+  s_0c57afa1d46a64::t_11c8c96e6df36c 7-8
+  s_0c57afa1d46a64::t_c7abfc2512d213 40
+  s_0c57afa1d46a64::t_a66389613ef057 38-39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "6528265f5541289cf78af4f4d6bdb3fa26e27ddd",
+  "prompts": {},
+  "sessions": {
+    "s_0c57afa1d46a64": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cc5f0965-dd42-42d7-a5a0-2533d3f1365a",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "YukiOno-1015 <sk4869pw4869@gmail.com>"
+    }
+  }
+}
