@@ -4,6 +4,9 @@ ARG EDITOR_UI_ARCHIVE_URL
 FROM alpine:3.20 AS editor_ui
 ARG EDITOR_UI_ARCHIVE_URL
 RUN test -n "$EDITOR_UI_ARCHIVE_URL" || (echo "EDITOR_UI_ARCHIVE_URL is required" >&2; exit 1)
+# editor-ui アーカイブ取得・展開専用の使い捨てステージ。
+# curl/tar の Alpine リポ版に追随したいので APK バージョン固定はしない。
+# hadolint ignore=DL3018
 RUN apk add --no-cache curl tar
 WORKDIR /work
 RUN curl -fsSL "$EDITOR_UI_ARCHIVE_URL" -o editor-ui.tar.gz
@@ -32,6 +35,9 @@ ENV N8N_DEFAULT_LOCALE=ja
 ARG CLAUDE_CODE_VERSION=latest
 ARG INSTALL_CLAUDE_CODE=false
 USER root
+# 後段 heredoc の単一引用句は意図通り（ラッパー側で実行時に $ANTHROPIC_API_KEY /
+# $CLAUDE_CODE_OAUTH_TOKEN を評価させるため、ビルド時に展開してはならない）。
+# hadolint ignore=SC2016
 RUN if [ "$INSTALL_CLAUDE_CODE" = "true" ]; then \
 		set -eux; \
 		npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}; \
