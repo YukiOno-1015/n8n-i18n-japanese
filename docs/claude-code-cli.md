@@ -109,7 +109,7 @@ return [{ json: { result: JSON.parse($json.stdout).result } }];
 n8n 式をそのまま文字列連結すると、引用符・改行で壊れたり**コマンドインジェクション**の
 リスクがあります。`JSON.stringify` で安全に囲みます。
 
-```
+```text
 claude -p {{ JSON.stringify($json.prompt) }} --output-format json
 ```
 
