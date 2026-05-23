@@ -1,0 +1,24 @@
+README.md
+  s_0c57afa1d46a64::t_ece684870eb6a9 27,29,31,34-35,40-44,48,52,62,69,71,75,112-113,117-118,120,124,126,135,137-138,142-144,166-170,205,213,218,234-236
+  s_0c57afa1d46a64::t_48a97701f78bd3 72
+docs/claude-code-cli.md
+  s_0c57afa1d46a64::t_af1f1ad006d08e 112
+.markdownlint.jsonc
+  s_0c57afa1d46a64::t_0cc66ec091ad05 1-21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "12ecfe5332173d927c015ef5a7b5abbfac69d079",
+  "prompts": {},
+  "sessions": {
+    "s_0c57afa1d46a64": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cc5f0965-dd42-42d7-a5a0-2533d3f1365a",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "YukiOno-1015 <sk4869pw4869@gmail.com>"
+    }
+  }
+}
