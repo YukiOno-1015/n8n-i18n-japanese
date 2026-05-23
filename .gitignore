@@ -23,3 +23,6 @@ Thumbs.db
 editor-ui.tar.gz
 editor-ui-dist/
 n8n/
+
+# Tooling caches (Serena MCP)
+.serena/

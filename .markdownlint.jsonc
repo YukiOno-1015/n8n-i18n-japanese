@@ -1,0 +1,21 @@
+{
+  // Markdownlint config for this repository.
+  // Disable rules that are noisy or inappropriate for Japanese documentation,
+  // keep the rules that catch real structural issues.
+
+  // MD013: line-length — 80-column limit is impractical for Japanese prose
+  // (CJK characters are double-width) and for tables containing URLs.
+  "MD013": false,
+
+  // MD060: table-column-style — pipe alignment is unreliable with
+  // double-width CJK characters; the tables are still valid GFM.
+  "MD060": false,
+
+  // MD033: inline HTML — allow <details>, <summary>, <br>, etc. used for
+  // collapsible sections and forced line breaks inside table cells.
+  "MD033": false,
+
+  // MD041: first-line-h1 — README starts with a top-level heading, but some
+  // partial docs intentionally do not.
+  "MD041": false
+}
