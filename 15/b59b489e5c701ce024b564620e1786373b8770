@@ -1,0 +1,19 @@
+.gitignore
+  s_0c57afa1d46a64::t_2f96448f996ea6 26-28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "15b59b489e5c701ce024b564620e1786373b8770",
+  "prompts": {},
+  "sessions": {
+    "s_0c57afa1d46a64": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cc5f0965-dd42-42d7-a5a0-2533d3f1365a",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "YukiOno-1015 <sk4869pw4869@gmail.com>"
+    }
+  }
+}
