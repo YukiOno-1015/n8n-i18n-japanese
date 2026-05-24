@@ -1,0 +1,19 @@
+docs/copilot-handler-test.md
+  s_30f66344d7f74a::t_cbf3f6fd4f7430 1-13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "88379874227c3cfb52ad08c34fc5c52c1e146594",
+  "prompts": {},
+  "sessions": {
+    "s_30f66344d7f74a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8d552cdf-ef06-4e33-a6fd-b1a376181629",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "jqit-yukiono <jqit.yuki.ono@gmail.com>"
+    }
+  }
+}
