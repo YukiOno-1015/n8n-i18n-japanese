@@ -57,12 +57,26 @@ Copilot がこのリポジトリの PR をレビューする際は、以下を�
 
 ---
 
-VERDICT: APPROVE
+VERDICT: <APPROVE|REQUEST_CHANGES>
 ```
 
 - マーカー: `## GitHub Copilot CLI レビュー (n8n-i18n-japanese 翻訳観点)` を**必ず**含める。
-- 最終行付近に **行頭完全一致** で `VERDICT: APPROVE` または `VERDICT: REQUEST_CHANGES` を出す。
+- 最終行付近に **行頭完全一致** で `VERDICT: APPROVE` または `VERDICT: REQUEST_CHANGES` を出す。`<APPROVE|REQUEST_CHANGES>` のプレースホルダーは実際の判定値に置換すること。
 - どちらの判定でも本文には具体的な指摘事項を箇条書きで書く（`REQUEST_CHANGES` のときは `claude-code-action` がこれを読んで自動修正を試みる）。
+
+例:
+
+```text
+（…レビュー本文…）
+
+VERDICT: APPROVE
+```
+
+```text
+（…レビュー本文：要修正点を箇条書きで明示…）
+
+VERDICT: REQUEST_CHANGES
+```
 
 ## やってはいけないこと
 
