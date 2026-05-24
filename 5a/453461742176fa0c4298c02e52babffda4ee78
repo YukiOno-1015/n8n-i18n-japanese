@@ -1,0 +1,37 @@
+docs/qiita-article.md
+  s_30f66344d7f74a::t_f4030a278255e4 98
+  s_30f66344d7f74a::t_f27a88b122a95c 52
+  s_30f66344d7f74a::t_d7f807cacd831f 81
+  s_30f66344d7f74a::t_083ef7106a9227 56
+  s_30f66344d7f74a::t_ac9e913d7641b6 147
+  s_30f66344d7f74a::t_0527ed2ca7a266 70
+  s_30f66344d7f74a::t_565846ff034fb2 112
+  s_30f66344d7f74a::t_8cae735f8112c8 7
+  s_30f66344d7f74a::t_cc631c2032f0a3 26
+  s_30f66344d7f74a::t_acfecce1332b65 108
+  s_30f66344d7f74a::t_5ee63f04902aec 127
+  s_30f66344d7f74a::t_3ba64e7e1be7e1 38
+  s_30f66344d7f74a::t_64ee2387d41493 180-196
+  s_30f66344d7f74a::t_98640fc131ba47 1-6,8-21,23-25,27-37,39-51,53-55,57-69,71-80,82-88,90-97,99-107,109-111,113-126,128-146,148-160,162-179,198-205,207-209
+  s_30f66344d7f74a::t_aeb63cacd557f2 22
+  s_30f66344d7f74a::t_421e8c29395603 161
+  s_30f66344d7f74a::t_c4004bd37d3ea3 206
+  s_30f66344d7f74a::t_501cb8391a3c7d 89
+  s_30f66344d7f74a::t_75d47424e02176 197
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "5a453461742176fa0c4298c02e52babffda4ee78",
+  "prompts": {},
+  "sessions": {
+    "s_30f66344d7f74a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8d552cdf-ef06-4e33-a6fd-b1a376181629",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "jqit-yukiono <jqit.yuki.ono@gmail.com>"
+    }
+  }
+}
