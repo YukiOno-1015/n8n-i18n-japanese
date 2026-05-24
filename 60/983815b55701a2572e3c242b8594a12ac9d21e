@@ -1,0 +1,26 @@
+.github/Skills.md
+  s_30f66344d7f74a::t_25d12342908935 1-109
+AGENTS.md
+  s_30f66344d7f74a::t_0a81239bc24df4 1-60
+CLAUDE.md
+  s_30f66344d7f74a::t_fc04e0331aff32 1-35
+.github/copilot-instructions.md
+  s_30f66344d7f74a::t_beca01eb0766a8 1-38,40-71
+  s_30f66344d7f74a::t_057c218a791d27 39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "60983815b55701a2572e3c242b8594a12ac9d21e",
+  "prompts": {},
+  "sessions": {
+    "s_30f66344d7f74a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8d552cdf-ef06-4e33-a6fd-b1a376181629",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "jqit-yukiono <jqit.yuki.ono@gmail.com>"
+    }
+  }
+}
