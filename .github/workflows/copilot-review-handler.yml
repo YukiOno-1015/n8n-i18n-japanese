@@ -125,11 +125,16 @@ jobs:
           PR_NUMBER: ${{ github.event.issue.number }}
         run: |
           set -euo pipefail
+          # --auto: Branch protection の必須 status check / approval が
+          # 全部 green になった時点で自動マージさせる。即マージできない
+          # 場合でも本ステップは成功扱いになり、条件成立時に GitHub 側で
+          # squash マージ + ブランチ削除が実行される。
           gh pr merge "${PR_NUMBER}" \
             --squash \
             --delete-branch \
+            --auto \
             --repo "${{ github.repository }}"
-          echo "✓ PR #${PR_NUMBER} を squash マージしました"
+          echo "✓ PR #${PR_NUMBER} の squash マージをキューに登録しました"
 
   auto-fix:
     needs: triage
