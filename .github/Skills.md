@@ -19,11 +19,11 @@
 
 1. n8n upstream の最新 `en.json` を取得。
 2. ローカル前回コピー [`script/en.json`](../script/en.json) と **jq で差分抽出**（追加・変更キーのみ）。
-3. 差分のみを Claude Code（または OpenAI / Gemini）に翻訳依頼。
+3. 差分のみを LLM に翻訳依頼。
 4. 翻訳結果を **jq で `languages/ja.json` にマージ**し、最新英語のキー順に再構築。
 5. `script/en.json` を新しい英語ロケールで上書き。
 
-ローカル実行は `script/translate.js`（[`package.json`](../package.json) の `i18n:translate`）から行います。`AI_PROVIDER` で `openai` / `gemini` を切替。
+ローカル実行は `script/translate.js`（[`package.json`](../package.json) の `i18n:translate`）から行います。`AI_PROVIDER` で `openai` / `gemini` を切替（GitHub Actions 上では Claude Code を利用）。
 
 ## ワークフロー構成（4 + 1）
 

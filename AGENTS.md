@@ -2,7 +2,7 @@
 
 [AGENTS.md spec](https://agents.md) に従う、コードエージェント共通の指示ファイルです。
 
-詳細は [`.github/Skills.md`](.github/Skills.md) を参照してください（canonical ソース）。Claude Code 専用の補足は [`CLAUDE.md`](CLAUDE.md)、GitHub Copilot 専用の補足は [`.github/copilot-instructions.md`](.github/copilot-instructions.md) を参照してください。
+詳細は [`.github/Skills.md`](.github/Skills.md) を参照してください（正規ソース）。Claude Code 専用の補足は [`CLAUDE.md`](CLAUDE.md)、GitHub Copilot 専用の補足は [`.github/copilot-instructions.md`](.github/copilot-instructions.md) を参照してください。
 
 ## このリポジトリは何か
 

@@ -2,7 +2,7 @@
 
 このファイルは GitHub Copilot およびこのリポジトリに対して Copilot CLI / Copilot Code Review が読み取るプロジェクト指示です。
 
-詳細は [`.github/Skills.md`](Skills.md) を参照してください（canonical ソース）。
+詳細は [`.github/Skills.md`](Skills.md) を参照してください（正規ソース）。
 
 ## このリポジトリは何か
 
