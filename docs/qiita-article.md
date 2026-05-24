@@ -185,14 +185,63 @@ printf '%s' {{ JSON.stringify($json.prompt) }} > /tmp/p.txt \
 - `pr-validate.yml` で機械的なチェック（JSON 妥当性 / lint / `docker compose` スモーク）は通すが、翻訳の **訳語ゆれ・口調・固有名詞** といったセマンティックな品質までは見れない
 - 失敗時に `auto-heal` で生まれる修正 PR は「人レビュー必須」にしているが、**正常系の翻訳 PR がノーチェックで main に入る** のはバランスが悪い
 
-対策として、以下を導入予定です。
+### 当初案と直面した制約
 
-- **GitHub Copilot のコードレビュー機能** を契約し、自動 PR に対して Copilot レビューをデフォルトで要求する（`request_copilot_review`）
-- Copilot レビューが完了するまでは **オートマージを保留** するようワークフローを改修
-- 翻訳 PR 専用に、訳語ゆれ・固有名詞・敬体／常体の混在をチェックする軽量なルールベース lint を追加
-- 重大変更（キー削除・大規模差分）の検知時は **自動マージを停止し、明示的に人手レビューを要求**
+第一感としては **GitHub Copilot のコードレビュー機能** を自動 PR に紐付ける案でした。`request_copilot_review` で PR にレビューを要求すれば、`@copilot` がコードを読んで指摘してくれます。
 
-「無人で速く回す」と「品質を担保する」を両立させるには、**人ではない第三者レビュワー（Copilot 等）をパイプラインに組み込む** のが現実解だと考えています。
+ただし、現状の制約が重なって素直には採用できませんでした。
+
+- **Copilot Pro+ の新規受付が停止中**：個人リポでの自動レビュー機能は Pro+ 契約が前提だが、新規契約自体が止まっている
+- **会社用 GitHub アカウントの Pro+ を公開 OSS リポのオーナーにしたくない**：identity 漏れを避けたい
+- **Org に移管 + Copilot Business**：理屈上は通るが、追加コスト + 公開リポの URL 変更 + Secrets 再投入が発生
+
+### 採用方針：Jenkins + VERDICT 駆動の自動マージ／自動修正ループ
+
+既に Webhook 受け口を Jenkins に用意していたため、**Copilot CLI を Jenkins から呼び、結果を PR コメントに投稿** する構成に寄せました。レビューコメント末尾の `VERDICT: APPROVE | REQUEST_CHANGES` を契約として、GitHub Actions 側で次のように分岐させます。
+
+```mermaid
+flowchart LR
+    A[PR open / synchronize] --> B[Jenkins Webhook]
+    B --> C[Copilot レビュー実行]
+    C --> D[PR コメント投稿<br/>末尾に VERDICT 行]
+    D --> E{VERDICT?}
+    E -- APPROVE --> F[squash マージ + ブランチ削除]
+    E -- REQUEST_CHANGES --> G[claude-code-action で機械修正]
+    G --> H[push → synchronize 発火]
+    H --> B
+    G -. 上限 5 回到達 .-> I[needs-human-review ラベル]
+```
+
+実装は `.github/workflows/copilot-review-handler.yml` を追加し、`issue_comment` イベントを起点に `triage` → `auto-merge` / `auto-fix` / `give-up` の 4 ジョブに分岐させています。**指摘事項を人間が読まなくても、Claude が自動で diff 修正してリトライ** するのがミソです。
+
+ゲート条件は厳しめにかけてあります。
+
+- コメント送信者は `vars.JENKINS_BOT_USERNAME` と一致するアカウントのみ
+- 対象 PR は自動ブランチ命名（`auto-heal/*` / `auto/n8n-*-ja`）＋特定ラベル（`auto-heal` / `automated` / `n8n-update`）に限定
+- 同一 PR 上でのループ回数を Jenkins コメント数で計測し、**5 回到達で `needs-human-review` を付与して停止**
+
+### n8n 介在案（並列検討）
+
+本リポは `n8n-ja` イメージ（Claude Code CLI 同梱）を配布しているため、**n8n 自身でレビューパイプラインを組む dogfooding 案** も並行して検討しました。
+
+```text
+[Webhook ノード] PR opened/sync（HMAC 検証）
+  → [HTTP Request] gh API で diff 取得
+  → [Code] 差分整形・サイズ制限
+  → [Execute Command] claude -p（n8n-ja 同梱 CLI）
+  → [HTTP Request] PR コメント投稿（末尾に VERDICT）
+```
+
+最終的には Jenkins に寄せましたが（既存資産活用・Credentials 管理の堅さ）、**プロジェクトのストーリーとしては n8n 流用も筋が良い** ため、将来的にレビューパイプラインを n8n 側へ移植することも視野に入れています。
+
+### 残課題
+
+- **PAT 運用**：Fine-grained PAT を Copilot 認証 / Actions マージ用で分離管理 + ローテーション
+- **Branch protection と Bot レビューの関係**：Copilot は approving review を出さない仕様の場合があり、required reviewer 条件としては使えない。`RELEASE_PAT` のマージ権限で通す前提
+- **翻訳 PR 特有の巨大差分**：`languages/ja.json` 全置換に近い PR では Copilot / Claude への入力サイズが膨らみがち。差分をキー単位に分解して投入する前処理が必要
+- **重大変更の検知**：キー削除・大規模差分検知時は自動修正ループに乗せず、明示的に人手レビューへ強制エスカレーション
+
+「無人で速く回す」と「品質を担保する」を両立させるには、**第三者レビュワーをパイプラインに組み込みつつ、レビュー指摘を別の LLM が自動修正する二段構え** が現状の現実解だと考えています。
 
 ## まとめ
 
