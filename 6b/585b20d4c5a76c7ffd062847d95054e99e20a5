@@ -1,0 +1,21 @@
+CLAUDE.md
+  s_30f66344d7f74a::t_95de7f5f9def4b 16
+.github/copilot-instructions.md
+  s_30f66344d7f74a::t_7c67392baa5f6f 60,64,67-79
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "6b585b20d4c5a76c7ffd062847d95054e99e20a5",
+  "prompts": {},
+  "sessions": {
+    "s_30f66344d7f74a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8d552cdf-ef06-4e33-a6fd-b1a376181629",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "jqit-yukiono <jqit.yuki.ono@gmail.com>"
+    }
+  }
+}
