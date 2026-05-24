@@ -25,7 +25,7 @@
 
 ## やりがちな落とし穴
 
-- `gh pr merge` は `--auto` を付けないと Branch protection で即失敗する。即マージしたい場合のみ `--admin` を使う（ただし `--admin` は **リポジトリ admin 権限を持つアカウント**、または **その権限を含む PAT (`RELEASE_PAT` 等)** で `gh auth` または `GH_TOKEN` env が設定されている場合のみ動作する。Fine-grained PAT で `Administration: write` を付与していないと拒否される）。
+- `gh pr merge` は `--auto` を付けないと Branch protection で即失敗する。通常は `--auto` に留め、`--admin` は **緊急時のみ** 使用すること（`--admin` は branch protection を**バイパス** する強力なオプションのため、必須 status check や必要な承認を意図せずスキップするリスクがある）。`--admin` を使う場合は **リポジトリ admin 権限を持つアカウント**、または **その権限を含む PAT (`RELEASE_PAT` 等)** で `gh auth` または `GH_TOKEN` env が設定されている必要がある。Fine-grained PAT では `Administration: write` を付与していないと拒否される。
 - `claude-code-action` を `issue_comment` 起点で動かすときは **default branch (main) の YAML が読まれる**。PR ブランチ上で workflow を編集しても次の発火に反映されない。
 - 翻訳 PR は `languages/ja.json` の差分が巨大化しがち。LLM レビューに丸投げせず、キー単位の前処理を入れる。
 
