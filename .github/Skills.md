@@ -106,4 +106,3 @@
 - [README](../README.md)
 - [フォーク元との違い](../docs/fork-differences.md)
 - [Claude Code CLI 同梱イメージ](../docs/claude-code-cli.md)
-- [Qiita 記事ドラフト](../docs/qiita-article.md)

@@ -12,7 +12,7 @@
 
 - 会話・コミットメッセージ・PR 本文は **日本語**。コード内識別子・コメントは **英語**。
 - `main` / `master` / `Release` への直接コミット禁止。必ず作業ブランチを切る。
-- コミットメッセージはプレフィックス付き: `feat:` / `fix:` / `chore:` / `docs:` / `refactor:` / `test:` / `ci:`。
+- コミットメッセージはプレフィックス付き: `feat:` / `fix:` / `chore:` / `docs:` / `refactor:` / `test:` / `ci:` / `style:` / `perf:`。
 - `languages/**` および `script/en.json` は機械翻訳フロー以外で変更しない。
 - 認証情報（Anthropic API キー / Docker Hub トークン / OAuth トークン）をリポジトリにコミットしない。`secrets.*` / 実行時 env のみ。
 
