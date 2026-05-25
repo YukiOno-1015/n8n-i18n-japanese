@@ -1,0 +1,19 @@
+docs/qiita-article-jq-llm-translation.md
+  s_30f66344d7f74a::t_74d6f05cb448d7 1-257
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.1",
+  "base_commit_sha": "71bd2d7baba391b532a16d43037fcb55d3bc0423",
+  "prompts": {},
+  "sessions": {
+    "s_30f66344d7f74a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8d552cdf-ef06-4e33-a6fd-b1a376181629",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "jqit-yukiono <jqit.yuki.ono@gmail.com>"
+    }
+  }
+}
