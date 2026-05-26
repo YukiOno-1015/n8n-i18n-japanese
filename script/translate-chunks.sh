@@ -97,7 +97,7 @@ $out_file のみを作成・編集し、他のファイルや git の操作は�
 PROMPT
 )
 
-  claude "${claude_args[@]}" "$prompt" >> "$translate_log" 2>&1 \
+  claude "${claude_args[@]}" "$prompt" >> "$translate_log" \
     || { echo "::error::claude failed on chunk $current ($in_file)"; exit 1; }
 
   if [[ ! -f "$out_file" ]]; then
