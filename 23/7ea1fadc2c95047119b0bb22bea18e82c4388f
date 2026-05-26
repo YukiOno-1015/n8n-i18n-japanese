@@ -1,0 +1,22 @@
+.github/workflows/n8n-monitor-pr.yml
+  s_88d19340a128df::t_3fa07db5a3fdaa 205-206
+  s_88d19340a128df::t_f2dd277cb2899c 192,194-201,203-204
+script/translate-chunks.sh
+  s_88d19340a128df::t_ff8d9cf2211912 1-97
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "237ea1fadc2c95047119b0bb22bea18e82c4388f",
+  "prompts": {},
+  "sessions": {
+    "s_88d19340a128df": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "204a388d-080e-4205-95d6-2dc5b82b0306",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "jqit-yukiono <jqit.yuki.ono@gmail.com>"
+    }
+  }
+}
