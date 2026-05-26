@@ -11,6 +11,8 @@
 #   CHUNK_SIZE                     - Keys per chunk (default: 40).
 #   CLAUDE_CODE_MAX_OUTPUT_TOKENS  - Per-call output token cap (default: 32000).
 #   CLAUDE_MODEL                   - Override Claude model id.
+#   MAX_RETRIES                    - Claude CLI retry attempts per chunk (default: 3).
+#   MAX_CHUNKS                     - Upper bound on chunk count (default: 150).
 
 set -euo pipefail
 
@@ -49,6 +51,7 @@ done
 chunk_count="$idx"
 echo "Created $chunk_count chunks (chunk_size=$CHUNK_SIZE, total_keys=$total)"
 
+# 150 chunks × 40 keys/chunk = 6,000 keys; covers the largest known n8n locale files.
 MAX_CHUNKS="${MAX_CHUNKS:-150}"
 if [[ "$chunk_count" -gt "$MAX_CHUNKS" ]]; then
   echo "::error::chunk_count ($chunk_count) exceeds MAX_CHUNKS ($MAX_CHUNKS). Reduce CHUNK_SIZE or raise MAX_CHUNKS." >&2
@@ -68,7 +71,7 @@ fi
 translate_log="$work_dir/translate.log"
 : > "$translate_log"
 
-mapfile -t chunk_files < <(compgen -G "$chunks_dir/in-*.json" 2>/dev/null || true)
+mapfile -t chunk_files < <(compgen -G "$chunks_dir/in-*.json" 2>/dev/null | sort || true)
 if [[ "${#chunk_files[@]}" -eq 0 ]]; then
   echo "::error::No chunk input files found in $chunks_dir" >&2
   exit 1
@@ -97,8 +100,22 @@ $out_file のみを作成・編集し、他のファイルや git の操作は�
 PROMPT
 )
 
-  claude "${claude_args[@]}" "$prompt" >> "$translate_log" \
-    || { echo "::error::claude failed on chunk $current ($in_file)"; exit 1; }
+  max_retries="${MAX_RETRIES:-3}"
+  attempt=0
+  delay=2
+  while true; do
+    attempt=$((attempt + 1))
+    if claude "${claude_args[@]}" "$prompt" 2>&1 | tee -a "$translate_log"; then
+      break
+    fi
+    if [[ "$attempt" -ge "$max_retries" ]]; then
+      echo "::error::claude failed on chunk $current ($in_file) after $max_retries attempts" >&2
+      exit 1
+    fi
+    echo "::warning::claude CLI failed (attempt $attempt/$max_retries), retrying in ${delay}s..."
+    sleep "$delay"
+    delay=$((delay * 2))
+  done
 
   if [[ ! -f "$out_file" ]]; then
     echo "::error::Chunk $current did not produce output: $out_file" >&2
@@ -109,13 +126,20 @@ PROMPT
     echo "::error::Chunk $current output is not valid JSON: $out_file" >&2
     exit 1
   fi
+
+  in_keys=$(jq 'length' "$in_file")
+  out_keys=$(jq 'length' "$out_file")
+  if [[ "$in_keys" != "$out_keys" ]]; then
+    echo "::error::Chunk $current key count mismatch: input=$in_keys output=$out_keys ($out_file)" >&2
+    exit 1
+  fi
   echo "::endgroup::"
 done
 
 # Merge all chunk outputs into a single translated.json keyed by the original
 # opaque path tokens. Later chunks override earlier ones on key collision
 # (collisions should not happen because chunks are disjoint).
-mapfile -t out_files < <(compgen -G "$chunks_dir/out-*.json" 2>/dev/null || true)
+mapfile -t out_files < <(compgen -G "$chunks_dir/out-*.json" 2>/dev/null | sort || true)
 if [[ "${#out_files[@]}" -eq 0 ]]; then
   echo "::error::No chunk output files found in $chunks_dir; translation produced no output" >&2
   exit 1
