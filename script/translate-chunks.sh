@@ -21,6 +21,12 @@ work_dir="${GITHUB_WORKSPACE:-$PWD}/.l10n-work"
 chunks_dir="$work_dir/chunks"
 src="$work_dir/to_translate.json"
 
+if ! command -v claude > /dev/null 2>&1; then
+  echo "::error::claude CLI not found on PATH" >&2
+  exit 1
+fi
+echo "claude version: $(claude --version 2>&1 || true)"
+
 if [[ ! -f "$src" ]]; then
   echo "Source worklist not found: $src" >&2
   exit 1
@@ -105,7 +111,10 @@ PROMPT
   delay=2
   while true; do
     attempt=$((attempt + 1))
-    if claude "${claude_args[@]}" "$prompt" 2>&1 | tee -a "$translate_log"; then
+    # Feed the prompt via stdin (`set +o pipefail` would mask claude's exit
+    # status when piped through tee). Capture status via PIPESTATUS instead.
+    set -o pipefail
+    if printf '%s\n' "$prompt" | claude "${claude_args[@]}" 2>&1 | tee -a "$translate_log"; then
       break
     fi
     if [[ "$attempt" -ge "$max_retries" ]]; then
@@ -122,15 +131,13 @@ PROMPT
     exit 1
   fi
 
-  if ! jq empty "$out_file" 2>/dev/null; then
-    echo "::error::Chunk $current output is not valid JSON: $out_file" >&2
-    exit 1
-  fi
-
-  in_keys=$(jq 'length' "$in_file")
-  out_keys=$(jq 'length' "$out_file")
-  if [[ "$in_keys" != "$out_keys" ]]; then
-    echo "::error::Chunk $current key count mismatch: input=$in_keys output=$out_keys ($out_file)" >&2
+  # Validate output: must be a JSON object whose key set exactly matches the
+  # input's. Key count alone misses key renames or duplications.
+  if ! jq -e --slurpfile ref "$in_file" '
+    type == "object"
+    and (keys_unsorted | sort) == ($ref[0] | keys_unsorted | sort)
+  ' "$out_file" > /dev/null; then
+    echo "::error::Chunk $current key set mismatch or invalid JSON ($out_file)" >&2
     exit 1
   fi
   echo "::endgroup::"

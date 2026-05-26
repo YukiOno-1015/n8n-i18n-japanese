@@ -191,10 +191,14 @@ jobs:
 
       - name: Install Claude Code CLI
         if: steps.already_done.outputs.skip == 'false' && steps.worklist.outputs.count != '0'
+        env:
+          CLAUDE_CODE_VERSION: "2.1.150"
         run: |
           set -euo pipefail
-          curl -fsSL https://claude.ai/install.sh | bash
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          # Pin a specific Claude Code release via npm so installs are
+          # reproducible and don't silently follow a moving install.sh URL.
+          npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
+          claude --version
 
       - name: Translate locale diff (Claude Code, chunked)
         if: steps.already_done.outputs.skip == 'false' && steps.worklist.outputs.count != '0'
