@@ -59,10 +59,15 @@ if [[ -n "${CLAUDE_MODEL:-}" ]]; then
   claude_args+=(--model "$CLAUDE_MODEL")
 fi
 
+translate_log="$work_dir/translate.log"
+: > "$translate_log"
+
 current=0
+shopt -s nullglob
 for in_file in "$chunks_dir"/in-*.json; do
   current=$((current + 1))
-  out_file="${in_file/in-/out-}"
+  chunk_name="$(basename "$in_file")"
+  out_file="${chunks_dir}/out-${chunk_name#in-}"
   echo "::group::Translating chunk $current / $chunk_count ($in_file)"
 
   prompt=$(cat <<PROMPT
@@ -81,7 +86,7 @@ $out_file のみを作成・編集し、他のファイルや git の操作は�
 PROMPT
 )
 
-  claude "${claude_args[@]}" "$prompt" > /dev/null
+  claude "${claude_args[@]}" "$prompt" >> "$translate_log"
 
   if [[ ! -f "$out_file" ]]; then
     echo "::error::Chunk $current did not produce output: $out_file" >&2
