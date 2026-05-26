@@ -49,6 +49,12 @@ done
 chunk_count="$idx"
 echo "Created $chunk_count chunks (chunk_size=$CHUNK_SIZE, total_keys=$total)"
 
+MAX_CHUNKS="${MAX_CHUNKS:-150}"
+if [[ "$chunk_count" -gt "$MAX_CHUNKS" ]]; then
+  echo "::error::chunk_count ($chunk_count) exceeds MAX_CHUNKS ($MAX_CHUNKS). Reduce CHUNK_SIZE or raise MAX_CHUNKS." >&2
+  exit 1
+fi
+
 claude_args=(
   --print
   --permission-mode acceptEdits
@@ -62,9 +68,14 @@ fi
 translate_log="$work_dir/translate.log"
 : > "$translate_log"
 
+mapfile -t chunk_files < <(compgen -G "$chunks_dir/in-*.json" 2>/dev/null || true)
+if [[ "${#chunk_files[@]}" -eq 0 ]]; then
+  echo "::error::No chunk input files found in $chunks_dir" >&2
+  exit 1
+fi
+
 current=0
-shopt -s nullglob
-for in_file in "$chunks_dir"/in-*.json; do
+for in_file in "${chunk_files[@]}"; do
   current=$((current + 1))
   chunk_name="$(basename "$in_file")"
   out_file="${chunks_dir}/out-${chunk_name#in-}"
@@ -86,10 +97,16 @@ $out_file のみを作成・編集し、他のファイルや git の操作は�
 PROMPT
 )
 
-  claude "${claude_args[@]}" "$prompt" >> "$translate_log"
+  claude "${claude_args[@]}" "$prompt" >> "$translate_log" 2>&1 \
+    || { echo "::error::claude failed on chunk $current ($in_file)"; exit 1; }
 
   if [[ ! -f "$out_file" ]]; then
     echo "::error::Chunk $current did not produce output: $out_file" >&2
+    exit 1
+  fi
+
+  if ! jq empty "$out_file" 2>/dev/null; then
+    echo "::error::Chunk $current output is not valid JSON: $out_file" >&2
     exit 1
   fi
   echo "::endgroup::"
@@ -98,5 +115,10 @@ done
 # Merge all chunk outputs into a single translated.json keyed by the original
 # opaque path tokens. Later chunks override earlier ones on key collision
 # (collisions should not happen because chunks are disjoint).
-jq -s 'reduce .[] as $o ({}; . * $o)' "$chunks_dir"/out-*.json > "$work_dir/translated.json"
+mapfile -t out_files < <(compgen -G "$chunks_dir/out-*.json" 2>/dev/null || true)
+if [[ "${#out_files[@]}" -eq 0 ]]; then
+  echo "::error::No chunk output files found in $chunks_dir; translation produced no output" >&2
+  exit 1
+fi
+jq -s 'reduce .[] as $o ({}; . * $o)' "${out_files[@]}" > "$work_dir/translated.json"
 echo "Translated keys: $(jq 'length' "$work_dir/translated.json")"
