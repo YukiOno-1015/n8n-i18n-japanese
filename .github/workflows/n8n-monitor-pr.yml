@@ -189,32 +189,25 @@ jobs:
           echo "count=$count" >> "$GITHUB_OUTPUT"
           echo "Keys needing translation: $count"
 
-      - name: Translate locale diff (Claude Code)
+      - name: Install Claude Code CLI
         if: steps.already_done.outputs.skip == 'false' && steps.worklist.outputs.count != '0'
-        timeout-minutes: 30
         env:
-          CLAUDE_CODE_MAX_OUTPUT_TOKENS: "64000"
-        uses: anthropics/claude-code-action@v1
-        with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          prompt: |
-            n8n の UI 文言を英語から日本語へ翻訳するタスク。
-            入力ファイル: .l10n-work/to_translate.json
-              （JSON オブジェクト。各エントリは "不透明なキー": "英語原文"）
-            出力ファイル: .l10n-work/translated.json
-            手順:
-            1. .l10n-work/to_translate.json を読む。
-            2. 各エントリの英語原文を、UI 文言として自然な日本語へ翻訳する。
-            3. キーは一字一句そのまま（変更・整形・並べ替え禁止）、値だけを
-               日本語に置き換えた JSON オブジェクトを .l10n-work/translated.json に書く。
-               入力と出力のキー集合は完全一致させ、全エントリを漏れなく翻訳する。
-            プレースホルダ（{name} や {{count}} 等）と HTML タグはそのまま保持する。
-            .l10n-work/translated.json のみを作成・編集し、他のファイルや
-            git の commit / push・ブランチ作成はしないこと。
-          claude_args: |
-            --max-turns 60
-            --allowedTools "Read,Write,Edit,Glob,Grep"
+          CLAUDE_CODE_VERSION: "2.1.150"
+        run: |
+          set -euo pipefail
+          # Pin a specific Claude Code release via npm so installs are
+          # reproducible and don't silently follow a moving install.sh URL.
+          npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
+          claude --version
+
+      - name: Translate locale diff (Claude Code, chunked)
+        if: steps.already_done.outputs.skip == 'false' && steps.worklist.outputs.count != '0'
+        timeout-minutes: 60
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          CLAUDE_CODE_MAX_OUTPUT_TOKENS: "32000"
+          CHUNK_SIZE: "40"
+        run: bash "$GITHUB_WORKSPACE/script/translate-chunks.sh"
 
       - name: Validate translations
         if: steps.already_done.outputs.skip == 'false' && steps.worklist.outputs.count != '0'
