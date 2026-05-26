@@ -1,10 +1,10 @@
 diff --git a/packages/frontend/editor-ui/src/app/App.vue b/packages/frontend/editor-ui/src/app/App.vue
 --- a/packages/frontend/editor-ui/src/app/App.vue
 +++ b/packages/frontend/editor-ui/src/app/App.vue
-@@ -21,8 +21,10 @@
- import { useUsersStore } from '@/features/settings/users/users.store';
+@@ -16,8 +16,10 @@
+ import { useSettingsStore } from '@/app/stores/settings.store';
  import LoadingView from '@/app/views/LoadingView.vue';
- import { locale, N8nCommandBar } from '@n8n/design-system';
+ import { locale } from '@n8n/design-system';
 -import { setLanguage } from '@n8n/i18n';
 +import { loadLanguage, setLanguage } from '@n8n/i18n';
 +import type { LocaleMessages } from '@n8n/i18n';
@@ -12,8 +12,8 @@ diff --git a/packages/frontend/editor-ui/src/app/App.vue b/packages/frontend/edi
 +import japaneseBaseText from '@n8n/i18n/locales/ja.json';
  import { useRootStore } from '@n8n/stores/useRootStore';
  import axios from 'axios';
- import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-@@ -124,7 +126,11 @@
+ import { computed, onMounted, provide, ref, shallowRef, watch } from 'vue';
+@@ -81,7 +83,11 @@
  watch(
  	defaultLocale,
  	async (newLocale) => {
