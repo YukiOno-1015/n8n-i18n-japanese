@@ -35,10 +35,9 @@ jobs:
       - name: Slack に Actions 失敗を通知
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: |
-          bash "$GITHUB_WORKSPACE/script/slack-notify.sh" \
-            "🚨 ${{ github.event.workflow_run.name }} が失敗しました (auto-heal 起動)" \
-            "${{ github.event.workflow_run.html_url }}"
+          SLACK_TEXT: "🚨 ${{ github.event.workflow_run.name }} が失敗しました (auto-heal 起動)"
+          SLACK_URL: ${{ github.event.workflow_run.html_url }}
+        run: bash "$GITHUB_WORKSPACE/script/slack-notify.sh"
 
       - name: Diagnose failure and open fix PR (Claude Code)
         timeout-minutes: 35
@@ -90,7 +89,6 @@ jobs:
         if: failure()
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: |
-          bash "$GITHUB_WORKSPACE/script/slack-notify.sh" \
-            "🚨 auto-heal 自身が失敗しました (元 run: ${{ github.event.workflow_run.name }})" \
-            "${{ github.event.workflow_run.html_url }}"
+          SLACK_TEXT: "🚨 auto-heal 自身が失敗しました (元 run: ${{ github.event.workflow_run.name }})"
+          SLACK_URL: ${{ github.event.workflow_run.html_url }}
+        run: bash "$GITHUB_WORKSPACE/script/slack-notify.sh"

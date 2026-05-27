@@ -3,54 +3,56 @@
 # Designed to be called from GitHub Actions on failure / human-review
 # escalation paths only, so the normal auto-loop stays silent.
 #
-# When SLACK_WEBHOOK_URL is unset or empty the script logs and exits 0,
-# so workflows that have not enabled Slack notifications keep passing.
+# Inputs are taken from environment variables to avoid shell quoting
+# issues with values that may contain user-controlled content (PR titles,
+# commit subjects, etc.). Actions sets `env:` values without re-evaluating
+# them in the shell, so there is no injection vector via `${{ ... }}`
+# templates either.
 #
 # Required env:
 #   SLACK_WEBHOOK_URL  Slack incoming webhook URL (repo secret).
+#   SLACK_TEXT         Free-form message body.
 #
-# Args:
-#   $1: text  Free-form message body (required).
-#   $2: url   Optional link URL appended as "<url|details>".
+# Optional env:
+#   SLACK_URL          Link URL appended as "<url|details>".
 #
-# Usage:
-#   SLACK_WEBHOOK_URL=... script/slack-notify.sh \
-#     "Auto-heal Actions failure: upstream-monitor" \
-#     "https://github.com/owner/repo/actions/runs/123"
+# Failure policy:
+#   - SLACK_WEBHOOK_URL unset/empty -> log and exit 0 (skip).
+#   - SLACK_TEXT unset/empty        -> log and exit 0 (skip).
+#   - Webhook POST failure          -> log warning and exit 0.
+#   Slack notification must never block the calling workflow.
 
-set -euo pipefail
-
-text="${1:-}"
-url="${2:-}"
-
-if [[ -z "$text" ]]; then
-  echo "slack-notify: text argument is required" >&2
-  exit 1
-fi
+set -uo pipefail
 
 if [[ -z "${SLACK_WEBHOOK_URL:-}" ]]; then
   echo "slack-notify: SLACK_WEBHOOK_URL not set; skipping"
   exit 0
 fi
 
-if ! command -v jq > /dev/null 2>&1; then
-  echo "slack-notify: jq not found on PATH" >&2
-  exit 1
+if [[ -z "${SLACK_TEXT:-}" ]]; then
+  echo "slack-notify: SLACK_TEXT not set; skipping"
+  exit 0
 fi
 
-if [[ -n "$url" ]]; then
-  body=$(jq -n --arg text "$text" --arg url "$url" '
+if ! command -v jq > /dev/null 2>&1; then
+  echo "slack-notify: jq not found on PATH; skipping" >&2
+  exit 0
+fi
+
+if [[ -n "${SLACK_URL:-}" ]]; then
+  body=$(jq -n --arg text "$SLACK_TEXT" --arg url "$SLACK_URL" '
     {text: ($text + "\n<" + $url + "|details>")}')
 else
-  body=$(jq -n --arg text "$text" '{text: $text}')
+  body=$(jq -n --arg text "$SLACK_TEXT" '{text: $text}')
 fi
 
-# Fail loudly only when the webhook itself rejects the payload; do not
-# block the calling workflow on transient network issues.
 if ! curl -fsS -X POST -H 'Content-Type: application/json' \
      --max-time 10 --retry 2 --retry-delay 2 \
      -d "$body" "$SLACK_WEBHOOK_URL" > /dev/null; then
-  echo "slack-notify: webhook POST failed" >&2
-  exit 1
+  # Do not propagate the failure: a transient Slack outage must not
+  # mark the orchestration workflow itself as failed.
+  echo "::warning::slack-notify: webhook POST failed (non-fatal)" >&2
+  exit 0
 fi
+
 echo "slack-notify: posted"
