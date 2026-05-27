@@ -1,0 +1,24 @@
+script/slack-notify.sh
+  s_88d19340a128df::t_06c7df6ff8cb01 1-56
+.github/workflows/auto-heal.yml
+  s_88d19340a128df::t_c6c7dd50558e08 35-42
+  s_88d19340a128df::t_43ae9e01f7c0ca 88-96
+.github/workflows/copilot-review-handler.yml
+  s_88d19340a128df::t_7ca7e71ee48965 216-218,235-244
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "931482c2150275afbb768da87ef5adda114ec343",
+  "prompts": {},
+  "sessions": {
+    "s_88d19340a128df": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "204a388d-080e-4205-95d6-2dc5b82b0306",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "jqit-yukiono <jqit.yuki.ono@gmail.com>"
+    }
+  }
+}
