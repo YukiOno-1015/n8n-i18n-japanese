@@ -23,6 +23,23 @@
 - 自動 PR は `auto-heal/*` または `auto/n8n-*-ja` ブランチ名 + 対応ラベル（`auto-heal` / `automated` / `n8n-update`）を付ける。Copilot レビュー駆動の自動マージ／自動修正が走るのはこの規約に従う PR のみ。
 - Branch protection の必須 status check 名（`yaml-workflow-lint` / `format-check` / `n8n-smoke-test`）を変更したら `.github/Skills.md` の ruleset セクションも更新する。
 
+## PR 提出前のローカルセルフレビュー（推奨）
+
+push 前に Claude Code の `/code-review` で自己レビューし、reviewer と CI の負荷を下げる。Claude Code 12.1.152 以上で `/code-review --fix` が利用可能。
+
+推奨フロー:
+
+1. 作業ブランチで編集する（WIP コミットは重ねてよい）。
+2. `/code-review high` で確認のみ実行、または `/code-review --fix` で低リスクの修正を working tree に自動適用する。
+3. `git diff` で適用差分を必ず確認し、不要な変更は revert する。
+4. コミットを 1 つに squash → push → PR を作成。
+5. push 後に追加レビューが欲しい場合は `/code-review --comment` で PR コメントとして投稿する。深いレビューが必要なときはユーザー手動で `/code-review ultra <PR#>`（課金あり）。
+
+位置付け:
+
+- `/code-review --fix` は Claude モデル判断による **PR 提出品質を上げるための上流フィルタ**であり、Jenkins ゲート（`yaml-workflow-lint` / `format-check` / `n8n-smoke-test`）と Copilot レビュー（VERDICT 経由）の代替ではない。CI 側ゲートは引き続き必須。
+- `languages/**` / `script/en.json` は機械翻訳フロー専用のため、`/code-review --fix` の適用対象に含めない。`--fix` 後の `git diff` でこれらが変更されていたら revert する。
+
 ## やりがちな落とし穴
 
 - `gh pr merge` は `--auto` を付けないと Branch protection で即失敗する。通常は `--auto` に留め、`--admin` は **緊急時のみ** 使用すること（`--admin` は branch protection を**バイパス** する強力なオプションのため、必須 status check や必要な承認を意図せずスキップするリスクがある）。`--admin` を使う場合は **リポジトリ admin 権限を持つアカウント**、または **その権限を含む PAT (`RELEASE_PAT` 等)** で `gh auth` または `GH_TOKEN` env が設定されている必要がある。Fine-grained PAT では `Administration: write` を付与していないと拒否される。
