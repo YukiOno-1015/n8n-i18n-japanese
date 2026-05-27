@@ -1,0 +1,19 @@
+CLAUDE.md
+  s_06cb5527661242::t_a64f4c15dac5f1 26-42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "05462e94c80edcddb52102b0a06d7c62d16a0e3e",
+  "prompts": {},
+  "sessions": {
+    "s_06cb5527661242": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "00fbc47c-9af0-4394-8403-a6009563c9f3",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "jqit-yukiono <jqit.yuki.ono@gmail.com>"
+    }
+  }
+}
