@@ -1,0 +1,19 @@
+script/list-untranslated.js
+  s_06cb5527661242::t_718a3997ee1e6c 1-35
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "0da44ef7f26f49e50b90c2903751db7c857358ef",
+  "prompts": {},
+  "sessions": {
+    "s_06cb5527661242": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "00fbc47c-9af0-4394-8403-a6009563c9f3",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "jqit-yukiono <jqit.yuki.ono@gmail.com>"
+    }
+  }
+}
