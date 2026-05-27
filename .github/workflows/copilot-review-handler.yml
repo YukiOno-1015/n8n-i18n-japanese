@@ -213,6 +213,9 @@ jobs:
       fromJSON(needs.triage.outputs.retry_count) >= 5
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
       - name: 上限到達ラベル付与 + 人手依頼コメント
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -229,3 +232,13 @@ jobs:
           gh pr comment "${PR_NUMBER}" \
             --repo "${{ github.repository }}" \
             --body "⚠️ Copilot 自動修正の上限 ${{ env.MAX_RETRY }} 回に到達しました。人手レビューと修正をお願いします。"
+
+      - name: Slack に Copilot ループ上限到達を通知
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          # PR タイトルは外部入力なので、シェル文字列に埋め込まず env 経由で
+          # スクリプトへ渡す。Actions の `env:` 値はランナーが直接設定する
+          # ため、テンプレート展開後にシェルで再解釈されない。
+          SLACK_TEXT: "⚠️ Copilot 自動修正が上限 ${{ env.MAX_RETRY }} 回に到達: PR #${{ github.event.issue.number }} ${{ github.event.issue.title }} (needs-human-review)"
+          SLACK_URL: ${{ github.event.issue.html_url }}
+        run: bash "$GITHUB_WORKSPACE/script/slack-notify.sh"
