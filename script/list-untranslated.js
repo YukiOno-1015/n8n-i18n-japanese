@@ -1,27 +1,26 @@
 // List keys whose ja value still equals the en value (likely untranslated).
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
 
 const enPath = path.join(__dirname, 'en.json');
 const jaPath = path.join(__dirname, '..', 'languages', 'ja.json');
 
-let enRaw = fs.readFileSync(enPath, 'utf8');
-let jaRaw = fs.readFileSync(jaPath, 'utf8');
-let enData = JSON.parse(enRaw);
-let jaData = JSON.parse(jaRaw);
+const enRaw = fs.readFileSync(enPath, 'utf8');
+const jaRaw = fs.readFileSync(jaPath, 'utf8');
+const enData = JSON.parse(enRaw);
+const jaData = JSON.parse(jaRaw);
 
 function walk(enObj, jaObj, prefix) {
-    let hits = [];
-    for (let key in enObj) {
+    const hits = [];
+    for (const key in enObj) {
         const enVal = enObj[key];
         const jaVal = jaObj ? jaObj[key] : undefined;
-        const fullKey = prefix ? prefix + '.' + key : key;
-        if (typeof enVal == 'object' && enVal !== null) {
-            hits = hits.concat(walk(enVal, jaVal, fullKey));
+        const fullKey = prefix ? `${prefix}.${key}` : key;
+        if (typeof enVal === 'object' && enVal !== null) {
+            hits.push(...walk(enVal, jaVal, fullKey));
         } else {
-            if (typeof jaVal == 'string' && enVal == jaVal) {
-                hits = hits.concat([fullKey]);
+            if (typeof jaVal === 'string' && enVal === jaVal) {
+                hits.push(fullKey);
             }
         }
     }
@@ -30,6 +29,6 @@ function walk(enObj, jaObj, prefix) {
 
 const untranslated = walk(enData, jaData, '');
 console.log('untranslated count: ' + untranslated.length);
-for (let i = 0; i < untranslated.length; i = i + 1) {
+for (let i = 0; i < untranslated.length; i++) {
     console.log('- ' + untranslated[i]);
 }
