@@ -32,6 +32,14 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Slack に Actions 失敗を通知
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          bash "$GITHUB_WORKSPACE/script/slack-notify.sh" \
+            "🚨 ${{ github.event.workflow_run.name }} が失敗しました (auto-heal 起動)" \
+            "${{ github.event.workflow_run.html_url }}"
+
       - name: Diagnose failure and open fix PR (Claude Code)
         timeout-minutes: 35
         uses: anthropics/claude-code-action@v1
@@ -77,3 +85,12 @@ jobs:
           claude_args: |
             --max-turns 80
             --allowedTools "Read,Write,Edit,Glob,Grep,Bash(gh:*),Bash(git:*),Bash(jq:*),Bash(cat:*),Bash(sed:*),Bash(ls:*),Bash(find:*),Bash(grep:*),Bash(head:*),Bash(tail:*)"
+
+      - name: Slack に auto-heal 自体の失敗を通知
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          bash "$GITHUB_WORKSPACE/script/slack-notify.sh" \
+            "🚨 auto-heal 自身が失敗しました (元 run: ${{ github.event.workflow_run.name }})" \
+            "${{ github.event.workflow_run.html_url }}"
