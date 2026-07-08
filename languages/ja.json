@@ -2466,6 +2466,7 @@
   "oauth.consentView.error.fetchDetails": "クライアント詳細の取得エラー",
   "oauth.consentView.error.heading": "認証不可",
   "oauth.consentView.error.resourceUnavailable": "対象が利用できなくなったため、この認証を完了できません。",
+  "oauth.consentView.error.insufficientScope": "このリクエストを承認するための権限が不足しています。",
   "oauth.consentView.success.title": "成功",
   "oauth.consentView.success.description": "まもなくクライアントにリダイレクトされます。",
   "parameterInput.expressionResult": "例: {result}",
