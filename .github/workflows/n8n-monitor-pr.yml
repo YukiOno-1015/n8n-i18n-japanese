@@ -39,14 +39,19 @@ jobs:
               "$1"
           }
 
-          # Prefer a concrete stable release tag on the 2.x line (n8n@2.y.z).
+          # 安定版リリース(n8n@X.Y.Z)の中から semver 最大を採用する。
+          # メジャー固定はせず最新メジャー/マイナーを追従する。releases API は
+          # 公開日順で返り、n8n は旧マイナー系へパッチをバックポート公開するため、
+          # 先頭(=最新公開)ではなく semver で最大を選ばないと過去バージョンを掴む。
+          # prerelease/draft は除外する(next/RC を自動ビルド対象にしない)。
           tag=$(gh_api "https://api.github.com/repos/n8n-io/n8n/releases?per_page=100" \
-            | jq -r '[.[] | .tag_name | select(test("^n8n@2\\.[0-9]+\\.[0-9]+$"))][0]')
+            | jq -r '[.[] | select(.prerelease == false and .draft == false) | .tag_name | select(test("^n8n@[0-9]+\\.[0-9]+\\.[0-9]+$"))] | sort_by(ltrimstr("n8n@") | split(".") | map(tonumber)) | last // ""')
 
-          # Fallback for API/ranking anomalies.
+          # Fallback for API anomalies. tags API は prerelease 情報を持たないため
+          # 安定版に限定できない点に注意(releases API が空を返す稀なケースの保険)。
           if [[ -z "$tag" || "$tag" == "null" ]]; then
             tag=$(gh_api "https://api.github.com/repos/n8n-io/n8n/tags?per_page=100" \
-              | jq -r '[.[].name | select(test("^n8n@2\\.[0-9]+\\.[0-9]+$"))][0]')
+              | jq -r '[.[].name | select(test("^n8n@[0-9]+\\.[0-9]+\\.[0-9]+$"))] | sort_by(ltrimstr("n8n@") | split(".") | map(tonumber)) | last // ""')
           fi
 
           if [[ -z "$tag" || "$tag" == "null" ]]; then
