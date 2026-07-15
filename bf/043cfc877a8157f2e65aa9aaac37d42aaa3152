@@ -1,0 +1,19 @@
+.github/workflows/n8n-monitor-pr.yml
+  s_f033a2e8080f01::t_5d00b88f7d37b1 42-46,48,50-51,54
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "bf043cfc877a8157f2e65aa9aaac37d42aaa3152",
+  "prompts": {},
+  "sessions": {
+    "s_f033a2e8080f01": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9cdb4447-080b-4f50-93fc-983798d1325b",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "jqit-yukiono <jqit.yuki.ono@gmail.com>"
+    }
+  }
+}
