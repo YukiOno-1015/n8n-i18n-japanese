@@ -31,7 +31,10 @@ ENV N8N_DEFAULT_LOCALE=ja
 # 同梱した場合も、実行時に認証 env がどちらも無ければ /usr/local/bin/claude の
 # ラッパーが起動を拒否する（env 未設定では動かさない）。
 # ベースは Docker Hardened Image (Alpine) で apk を持たないが node/npm/git は同梱済み。
-# npm のグローバル bin は PATH 外（バージョン依存パス）のため、ラッパー経由で実体を exec する。
+# /usr/local/bin/claude（PATH内）にラッパーを置き、実行時に native 実体を exec する。
+# 実体は symlink ではなく cp で退避する: npm prefix が /usr/local だと
+# $(npm prefix -g)/bin/claude が /usr/local/bin/claude と一致し、直後にラッパーで
+# 上書きすると symlink が自分自身を指して無限 exec ループになるため。
 ARG CLAUDE_CODE_VERSION=latest
 ARG INSTALL_CLAUDE_CODE=false
 USER root
@@ -42,7 +45,8 @@ RUN if [ "$INSTALL_CLAUDE_CODE" = "true" ]; then \
 		set -eux; \
 		npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}; \
 		npm cache clean --force; \
-		ln -sf "$(npm prefix -g)/bin/claude" /usr/local/lib/claude-real; \
+		cp "$(readlink -f "$(npm prefix -g)/bin/claude")" /usr/local/lib/claude-real; \
+		chmod +x /usr/local/lib/claude-real; \
 		{ \
 			echo '#!/bin/sh'; \
 			echo 'if [ -z "$ANTHROPIC_API_KEY" ] && [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then'; \
