@@ -1,0 +1,20 @@
+Dockerfile.n8n-ja
+  s_cef0a4ed50c798::t_00135ec561f793 34-37
+  s_cef0a4ed50c798::t_feb68eb95752fd 48-49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "d927510649f10c85c463d80ada4b6e40ecc9a9b8",
+  "prompts": {},
+  "sessions": {
+    "s_cef0a4ed50c798": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f9232e21-54bd-4264-b1e8-fb6e504dd5fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": null
+    }
+  }
+}
