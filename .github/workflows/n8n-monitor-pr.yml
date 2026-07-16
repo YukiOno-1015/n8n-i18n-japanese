@@ -24,10 +24,32 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
+      - name: Resolve current tracked n8n version
+        id: current
+        run: |
+          set -euo pipefail
+          if [[ -f .n8n-upstream-version ]]; then
+            current=$(tr -d '[:space:]' < .n8n-upstream-version)
+          else
+            current=$(grep -E '^\s*image:\s*n8nio/n8n:' docker-compose.yml | sed -E 's#^\s*image:\s*n8nio/n8n:##' | tr -d '[:space:]')
+          fi
+          current="${current#n8n@}"
+          # 現在バージョンが解決できないと CUR_MAJOR が空になり後段の追従判定が
+          # 破綻するため、ここで明示的に停止して原因を特定しやすくする。
+          if ! [[ "$current" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "現在追従中の n8n バージョンを x.y.z 形式で解決できません: '$current'" >&2
+            echo ".n8n-upstream-version または docker-compose.yml の image タグを確認してください。" >&2
+            exit 1
+          fi
+          echo "version=$current" >> "$GITHUB_OUTPUT"
+          echo "major=${current%%.*}" >> "$GITHUB_OUTPUT"
+          echo "Current tracked n8n version: $current (major ${current%%.*})"
+
       - name: Resolve latest n8n version tag
         id: latest
         env:
           GH_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CUR_MAJOR: ${{ steps.current.outputs.major }}
         run: |
           set -euo pipefail
 
@@ -39,19 +61,21 @@ jobs:
               "$1"
           }
 
-          # 安定版リリース(n8n@X.Y.Z)の中から semver 最大を採用する。
-          # メジャー固定はせず最新メジャー/マイナーを追従する。releases API は
-          # 公開日順で返り、n8n は旧マイナー系へパッチをバックポート公開するため、
-          # 先頭(=最新公開)ではなく semver で最大を選ばないと過去バージョンを掴む。
-          # prerelease/draft は除外する(next/RC を自動ビルド対象にしない)。
-          tag=$(gh_api "https://api.github.com/repos/n8n-io/n8n/releases?per_page=100" \
-            | jq -r '[.[] | select(.prerelease == false and .draft == false) | .tag_name | select(test("^n8n@[0-9]+\\.[0-9]+\\.[0-9]+$"))] | sort_by(ltrimstr("n8n@") | split(".") | map(tonumber)) | last // ""')
+          releases=$(gh_api "https://api.github.com/repos/n8n-io/n8n/releases?per_page=100")
+
+          # 現在追従中のメジャー内で安定版(n8n@X.Y.Z)の semver 最大を採用する。
+          # releases API は公開日順で返り、n8n は旧マイナー系へパッチをバックポート
+          # 公開するため、先頭(=最新公開)ではなく semver 最大を選ばないと過去
+          # バージョンを掴む。prerelease/draft は除外(next/RC を自動ビルド対象外)。
+          # メジャー越えは editor-ui patch 非互換のリスクがあるため自動追従せず、
+          # .n8n-upstream-version のメジャーを人手で上げたときだけ移行する。
+          tag=$(jq -r --arg M "$CUR_MAJOR" '[.[] | select(.prerelease == false and .draft == false) | .tag_name | select(test("^n8n@[0-9]+\\.[0-9]+\\.[0-9]+$")) | select((ltrimstr("n8n@") | split(".")[0]) == $M)] | sort_by(ltrimstr("n8n@") | split(".") | map(tonumber)) | last // ""' <<<"$releases")
 
           # Fallback for API anomalies. tags API は prerelease 情報を持たないため
           # 安定版に限定できない点に注意(releases API が空を返す稀なケースの保険)。
           if [[ -z "$tag" || "$tag" == "null" ]]; then
             tag=$(gh_api "https://api.github.com/repos/n8n-io/n8n/tags?per_page=100" \
-              | jq -r '[.[].name | select(test("^n8n@[0-9]+\\.[0-9]+\\.[0-9]+$"))] | sort_by(ltrimstr("n8n@") | split(".") | map(tonumber)) | last // ""')
+              | jq -r --arg M "$CUR_MAJOR" '[.[].name | select(test("^n8n@[0-9]+\\.[0-9]+\\.[0-9]+$")) | select((ltrimstr("n8n@") | split(".")[0]) == $M)] | sort_by(ltrimstr("n8n@") | split(".") | map(tonumber)) | last // ""')
           fi
 
           if [[ -z "$tag" || "$tag" == "null" ]]; then
@@ -59,22 +83,16 @@ jobs:
             exit 1
           fi
 
+          # より新しい安定版メジャーが存在する場合は通知のみ(自動追従はしない)。
+          newer_major=$(jq -r '[.[] | select(.prerelease == false and .draft == false) | .tag_name | select(test("^n8n@[0-9]+\\.[0-9]+\\.[0-9]+$")) | (ltrimstr("n8n@") | split(".")[0] | tonumber)] | max // 0' <<<"$releases")
+          if [[ "$newer_major" -gt "$CUR_MAJOR" ]]; then
+            echo "::warning::新しいメジャー n8n v${newer_major} が存在します(現在 major ${CUR_MAJOR})。メジャー移行は editor-ui patch 更新を伴うため、.n8n-upstream-version のメジャーを手動で更新してください。"
+          fi
+
           version="${tag#n8n@}"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "Resolved n8n tag: $tag"
-
-      - name: Resolve current tracked n8n version
-        id: current
-        run: |
-          set -euo pipefail
-          if [[ -f .n8n-upstream-version ]]; then
-            current=$(tr -d '[:space:]' < .n8n-upstream-version)
-          else
-            current=$(grep -E '^\s*image:\s*n8nio/n8n:' docker-compose.yml | sed -E 's#^\s*image:\s*n8nio/n8n:##' | tr -d '[:space:]')
-          fi
-          echo "version=$current" >> "$GITHUB_OUTPUT"
-          echo "Current tracked n8n version: $current"
+          echo "Resolved n8n tag: $tag (major ${CUR_MAJOR} 内の semver 最大)"
 
       - name: Skip if release already published
         id: already_done
