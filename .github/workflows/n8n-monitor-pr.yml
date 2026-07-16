@@ -34,6 +34,13 @@ jobs:
             current=$(grep -E '^\s*image:\s*n8nio/n8n:' docker-compose.yml | sed -E 's#^\s*image:\s*n8nio/n8n:##' | tr -d '[:space:]')
           fi
           current="${current#n8n@}"
+          # 現在バージョンが解決できないと CUR_MAJOR が空になり後段の追従判定が
+          # 破綻するため、ここで明示的に停止して原因を特定しやすくする。
+          if ! [[ "$current" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "現在追従中の n8n バージョンを x.y.z 形式で解決できません: '$current'" >&2
+            echo ".n8n-upstream-version または docker-compose.yml の image タグを確認してください。" >&2
+            exit 1
+          fi
           echo "version=$current" >> "$GITHUB_OUTPUT"
           echo "major=${current%%.*}" >> "$GITHUB_OUTPUT"
           echo "Current tracked n8n version: $current (major ${current%%.*})"
