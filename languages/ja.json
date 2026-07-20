@@ -4080,6 +4080,8 @@
   "canvas.nodeGroup.connectionChangeBlocked.noContinuousPathFromRootToLeaf": "'{group}'は最初のノードから最後のノードまで接続されていなければなりません。グループ解除後に変更できます。",
   "canvas.nodeGroup.autoExtended.title": "'{group}'を拡張しました",
   "canvas.nodeGroup.autoExtended.message": "新しい接続で'{group}'を有効に保つために'{node}'を追加しました。",
+  "canvas.nodeGroup.removedOnSave.title": "グループが削除されました",
+  "canvas.nodeGroup.removedOnSave.message": "次のグループはお使いの n8n バージョンと互換性がないため削除されました: {groups}",
   "canvas.nodeGroup.titlePlaceholder": "グループ名",
   "canvas.nodeGroup.expand": "展開",
   "canvas.nodeGroup.collapse": "折りたたむ",
