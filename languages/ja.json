@@ -6483,6 +6483,8 @@
   "insights.dashboard.dataRangeAlert.dismiss": "閉じる",
   "insights.dashboard.paywall.title": "より詳細なインサイトにアクセスするためにアップグレード",
   "insights.dashboard.paywall.description": "より詳細でワークフローごとのインサイト、および異なる期間における本番実行の視覚的な内訳にアクセスできるようになります。",
+  "insights.dashboard.error.forbidden.title": "インサイトを読み込めませんでした",
+  "insights.dashboard.error.forbidden.message": "このプロジェクトのインサイトへのアクセス権がありません",
   "insights.banner.title.timeSaved.tooltip": "全てのワークフローにおける実行あたりの見積もり時間節約から計算された合計時間節約",
   "insights.banner.queueMode.warning": "キューモードユーザーに対してインサイトの実行数が重複する問題を特定し、修正しました。",
   "insights.banner.queueMode.warning.link.text": "もっと詳しく知る",
