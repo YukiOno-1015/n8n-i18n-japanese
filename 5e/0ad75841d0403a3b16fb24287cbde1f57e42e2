@@ -1,0 +1,23 @@
+.github/workflows/copilot-review-handler.yml
+  s_686f4a5fc84a22::t_b774d8ba5c6355 167,171-241
+  s_686f4a5fc84a22::t_2a39a13710068b 69-73
+  s_686f4a5fc84a22::t_bee34d34d9d01f 7-13
+  s_686f4a5fc84a22::t_aad3919b2eb216 294-295,302-305
+  s_686f4a5fc84a22::t_0da67c5d3534b0 242
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "5e0ad75841d0403a3b16fb24287cbde1f57e42e2",
+  "prompts": {},
+  "sessions": {
+    "s_686f4a5fc84a22": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3df23907-053f-452f-ae84-b954502281c1",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "jqit-yukiono <jqit.yuki.ono@gmail.com>"
+    }
+  }
+}
