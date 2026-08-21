@@ -4,6 +4,13 @@
 #     (PR synchronize → Jenkins 再レビュー → ループ。上限到達で needs-human-review)
 # する GitHub Actions ワークフロー。
 #
+# **Copilot CLI がクォータ超過・認証エラー等で判定不能（generation-failed）
+# になった場合のフォールバック**: triage ジョブが Claude Code CLI 側の
+# コメント（同じ reviewed-sha・generation-failed 無し・VERDICT: APPROVE）を
+# ポーリング取得できれば、それを effective_verdict として自動マージ判定に
+# 使う。auto-fix/give-up は従来通り generation_failed != 'true' の間だけ
+# 動くため、フォールバック発動時（Copilot 障害由来）にはどちらも起動しない。
+#
 # 配置先: YukiOno-1015/n8n-i18n-japanese リポジトリの
 #   .github/workflows/copilot-review-handler.yml
 # 本ファイルは jenkins-cli 側の参照コピー (templates)。
@@ -59,6 +66,11 @@ jobs:
       sha_match: ${{ steps.gate.outputs.sha_match }}
       reviewed_sha: ${{ steps.gate.outputs.reviewed_sha }}
       generation_failed: ${{ steps.gate.outputs.generation_failed }}
+      current_sha: ${{ steps.gate.outputs.current_sha }}
+      claude_found: ${{ steps.claude-fallback.outputs.claude_found }}
+      claude_verdict: ${{ steps.claude-fallback.outputs.claude_verdict }}
+      effective_verdict: ${{ steps.decide.outputs.effective_verdict }}
+      effective_sha_match: ${{ steps.decide.outputs.effective_sha_match }}
     steps:
       - name: コメントから VERDICT を抽出（厳格マッチ）
         id: parse
@@ -152,8 +164,81 @@ jobs:
             echo "sha_match=$SHA_MATCH"
             echo "reviewed_sha=$REVIEWED_SHA"
             echo "generation_failed=$GENERATION_FAILED"
+            echo "current_sha=$CURRENT_SHA"
           } >> "$GITHUB_OUTPUT"
           echo "sha_match=$SHA_MATCH reviewed_sha=$REVIEWED_SHA current_sha=$CURRENT_SHA generation_failed=$GENERATION_FAILED"
+
+      - name: Claude Code フォールバック判定（Copilot 判定不能時のみ）
+        id: claude-fallback
+        if: steps.gate.outputs.generation_failed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          BOT: ${{ vars.JENKINS_BOT_USERNAME }}
+          CLAUDE_MARKER: "## Claude Code CLI レビュー (n8n-i18n-japanese 翻訳観点)"
+          CURRENT_SHA: ${{ steps.gate.outputs.current_sha }}
+        run: |
+          set -euo pipefail
+          MAX_WAIT_SECONDS=300
+          POLL_INTERVAL_SECONDS=20
+          ELAPSED=0
+          FOUND=false
+          CLAUDE_VERDICT="UNKNOWN"
+
+          while [ "$ELAPSED" -lt "$MAX_WAIT_SECONDS" ]; do
+            LATEST=$(gh api --paginate "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
+              | jq --slurp --arg user "$BOT" --arg marker "$CLAUDE_MARKER" \
+                   '[.[][] | select(.user.login == $user and (.body | startswith($marker)))] | sort_by(.id) | last // empty')
+            if [ -n "$LATEST" ] && [ "$LATEST" != "null" ]; then
+              CBODY=$(printf '%s' "$LATEST" | jq -r '.body')
+              LINE2=$(printf '%s\n' "$CBODY" | sed -n '2p')
+              LINE3=$(printf '%s\n' "$CBODY" | sed -n '3p')
+              REVIEWED_SHA=$(printf '%s' "$LINE2" | grep -oE '^<!-- reviewed-sha: [0-9a-f]{7,40} -->$' | grep -oE '[0-9a-f]{7,40}' || true)
+              CLAUDE_GENERATION_FAILED=false
+              if printf '%s' "$LINE3" | grep -qE '^<!-- generation-failed: true -->$'; then
+                CLAUDE_GENERATION_FAILED=true
+              fi
+              if [ -n "$REVIEWED_SHA" ] && [ "$REVIEWED_SHA" = "$CURRENT_SHA" ] && [ "$CLAUDE_GENERATION_FAILED" = "false" ]; then
+                FOUND=true
+                CLAUDE_VERDICT=$(printf '%s\n' "$CBODY" | tr -d '\r' | grep -oE '^VERDICT: (APPROVE|REQUEST_CHANGES)$' | tail -1 | awk '{print $2}')
+                break
+              fi
+            fi
+            sleep "$POLL_INTERVAL_SECONDS"
+            ELAPSED=$((ELAPSED + POLL_INTERVAL_SECONDS))
+          done
+
+          echo "claude_found=$FOUND" >> "$GITHUB_OUTPUT"
+          echo "claude_verdict=${CLAUDE_VERDICT:-UNKNOWN}" >> "$GITHUB_OUTPUT"
+          echo "claude_found=$FOUND claude_verdict=${CLAUDE_VERDICT:-UNKNOWN} elapsed=${ELAPSED}s"
+
+      - name: 最終判定（Copilot 本来の結果 or Claude フォールバックを合成）
+        id: decide
+        env:
+          VERDICT: ${{ steps.parse.outputs.verdict }}
+          GENERATION_FAILED: ${{ steps.gate.outputs.generation_failed }}
+          SHA_MATCH: ${{ steps.gate.outputs.sha_match }}
+          CLAUDE_FOUND: ${{ steps.claude-fallback.outputs.claude_found }}
+          CLAUDE_VERDICT: ${{ steps.claude-fallback.outputs.claude_verdict }}
+        run: |
+          set -euo pipefail
+          EFFECTIVE_VERDICT="$VERDICT"
+          EFFECTIVE_SHA_MATCH="$SHA_MATCH"
+          if [ "$GENERATION_FAILED" = "true" ]; then
+            if [ "${CLAUDE_FOUND:-false}" = "true" ] && [ "$CLAUDE_VERDICT" = "APPROVE" ]; then
+              EFFECTIVE_VERDICT="APPROVE"
+              EFFECTIVE_SHA_MATCH="true"
+            else
+              # Claude 不在（タイムアウト）/ Claude も generation-failed /
+              # Claude も REQUEST_CHANGES → 安全側に倒す（auto-fix/give-up は
+              # generation_failed != 'true' を要求するため、この場合どちらも
+              # 従来通りスキップされたままになる）。
+              EFFECTIVE_VERDICT="REQUEST_CHANGES"
+            fi
+          fi
+          echo "effective_verdict=$EFFECTIVE_VERDICT" >> "$GITHUB_OUTPUT"
+          echo "effective_sha_match=$EFFECTIVE_SHA_MATCH" >> "$GITHUB_OUTPUT"
+          echo "effective_verdict=$EFFECTIVE_VERDICT effective_sha_match=$EFFECTIVE_SHA_MATCH"
 
       - name: Jenkins レビューコメント数カウント（ループ上限判定用）
         id: count
@@ -206,15 +291,18 @@ jobs:
     needs: triage
     if: |
       needs.triage.outputs.eligible == 'true' &&
-      needs.triage.outputs.verdict == 'APPROVE' &&
-      needs.triage.outputs.sha_match == 'true'
+      needs.triage.outputs.effective_verdict == 'APPROVE' &&
+      needs.triage.outputs.effective_sha_match == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: squash マージ + head ブランチ削除
         env:
           GH_TOKEN: ${{ secrets.RELEASE_PAT }}
           PR_NUMBER: ${{ github.event.issue.number }}
-          REVIEWED_SHA: ${{ needs.triage.outputs.reviewed_sha }}
+          # フォールバック成立時は Copilot 側の reviewed_sha が空のことが
+          # あるため、triage で取得済みの現在の head SHA を使う
+          # （effective_sha_match == 'true' の時点でこの値と一致確認済み）。
+          REVIEWED_SHA: ${{ needs.triage.outputs.current_sha }}
         run: |
           set -euo pipefail
           # --auto: このリポジトリには branch protection の required status
