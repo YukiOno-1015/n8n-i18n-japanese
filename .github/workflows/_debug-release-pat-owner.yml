@@ -1,0 +1,16 @@
+---
+name: "[Debug] RELEASE_PAT 所有アカウント確認"
+
+"on":
+  workflow_dispatch: {}
+
+jobs:
+  whoami:
+    runs-on: ubuntu-latest
+    steps:
+      - name: RELEASE_PAT の login を出力
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+        run: |
+          set -euo pipefail
+          gh api user --jq .login
