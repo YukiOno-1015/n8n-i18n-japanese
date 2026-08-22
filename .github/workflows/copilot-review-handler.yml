@@ -1,10 +1,11 @@
-# Jenkins から投稿された Copilot レビューコメントを受けて
+# Jenkins から投稿された統合レビューコメント（Copilot CLI / Claude Code CLI
+# 両方の指摘を1本にまとめたもの）を受けて
 #   - VERDICT: APPROVE → squash マージ + ブランチ削除
 #   - VERDICT: REQUEST_CHANGES → claude-code-action で diff を機械修正 → push
 #     (PR synchronize → Jenkins 再レビュー → ループ。上限到達で needs-human-review)
 # する GitHub Actions ワークフロー。
 #
-# 配置先: YukiOno-1015/n8n-i18n-japanese リポジトリの
+# 配置先: jqit-yukiono/n8n-i18n-japanese リポジトリの
 #   .github/workflows/copilot-review-handler.yml
 # 本ファイルは jenkins-cli 側の参照コピー (templates)。
 #
@@ -30,24 +31,18 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  COMMENT_MARKER: "## GitHub Copilot CLI レビュー (n8n-i18n-japanese 翻訳観点)"
+  # Jenkins側でCopilot CLI/Claude Code CLI両方の指摘を1本のコメントに
+  # 統合してから投稿するため（jenkins-cli PR #161）、コメントはこの
+  # マーカー1種類のみになった。
+  COMMENT_MARKER: "## AI統合レビュー (n8n-i18n-japanese 翻訳観点)"
   MAX_RETRY: 5
 
 jobs:
   triage:
     # 本文の先頭がマーカー、かつ Jenkins ボットの投稿だけを対象にする。
-    # 投稿者は Claude Code CLI レビューコメントとも共通（どちらも Jenkins
-    # bot 名義）で、その本文には攻撃者が制御できる PR タイトルがそのまま
-    # 埋め込まれる。contains() で判定すると、PR タイトルにこのマーカー
-    # 文字列を混入させるだけで Claude Code 側のコメント（参考情報のみの
-    # はずの VERDICT）がここでの自動マージ/自動修正判定に誤って使われて
-    # しまう（minewatch/eventwatch 向け PR #152/#154 と同じ脆弱性）。
-    # Copilot 側コメントは必ず本文の先頭にマーカーを出力するため
-    # startsWith() で十分区別でき、Claude Code 側コメントは別マーカー
-    # （"## Claude Code CLI レビュー ..."）で始まるため一致しない。
     if: |
       github.event.issue.pull_request != null &&
-      startsWith(github.event.comment.body, '## GitHub Copilot CLI レビュー (n8n-i18n-japanese 翻訳観点)') &&
+      startsWith(github.event.comment.body, '## AI統合レビュー (n8n-i18n-japanese 翻訳観点)') &&
       github.event.comment.user.login == vars.JENKINS_BOT_USERNAME
     runs-on: ubuntu-latest
     outputs:
@@ -58,7 +53,6 @@ jobs:
       labels: ${{ steps.gate.outputs.labels }}
       sha_match: ${{ steps.gate.outputs.sha_match }}
       reviewed_sha: ${{ steps.gate.outputs.reviewed_sha }}
-      generation_failed: ${{ steps.gate.outputs.generation_failed }}
     steps:
       - name: コメントから VERDICT を抽出（厳格マッチ）
         id: parse
@@ -107,21 +101,19 @@ jobs:
           fi
 
           # n8n-i18n-japanese-pr-review.groovy はコメント本文の先頭を必ず
-          # 「1行目: マーカー / 2行目: <!-- reviewed-sha: ... --> /
-          # 3行目: <!-- generation-failed: true -->（生成失敗時のみ）」と
-          # いう固定構造で出力する。本文全体を対象にした grep だと、外部
-          # 入力（diff）の影響を受ける Copilot 生成本文（レビュー本文）が
-          # これらの行をたまたま引用・生成しただけで誤判定されてしまう
-          # （PR タイトル経由の偽装だけでなく、本文中の別の位置に同じ行が
-          # 現れるケースも防げていなかった。実機レビュー指摘）。行全体一致
-          # だけでは不十分なため、Jenkins が実際に出力する行番号（2行目 /
-          # 3行目）だけを取り出して判定する。
+          # 「1行目: マーカー / 2行目: <!-- reviewed-sha: ... -->」という
+          # 固定構造で出力する。本文全体を対象にした grep だと、外部入力
+          # （diff）の影響を受ける生成本文（レビュー本文）がこの行を
+          # たまたま引用・生成しただけで誤判定されてしまう（PR タイトル
+          # 経由の偽装だけでなく、本文中の別の位置に同じ行が現れるケースも
+          # 防げていなかった。実機レビュー指摘）。行全体一致だけでは
+          # 不十分なため、Jenkins が実際に出力する行番号（2行目）だけを
+          # 取り出して判定する。
           LINE2=$(printf '%s\n' "$BODY" | sed -n '2p')
-          LINE3=$(printf '%s\n' "$BODY" | sed -n '3p')
 
           # 2行目の "<!-- reviewed-sha: <sha> -->" からレビュー対象コミット
           # を抽出し、現在の PR head と一致するかを見る。
-          # fetchDiffForDualReview() の取得後チェックから Copilot 生成完了
+          # fetchDiffForDualReview() の取得後チェックからレビュー統合完了
           # までの間にも push が入りうるため、自動マージ/自動修正は
           # reviewed SHA == 現在の head の場合だけに限定する（実機レビュー
           # 指摘、minewatch/eventwatch 向け PR #154 と同じ設計）。
@@ -131,29 +123,14 @@ jobs:
             SHA_MATCH=true
           fi
 
-          # 3行目の "<!-- generation-failed: true -->" は、Copilot CLI の
-          # 異常終了・プロンプトサイズ超過・VERDICTフォーマット契約違反など
-          # 生成自体の失敗を示す。runCopilotAndEnforceVerdict() はこの
-          # 場合も安全側で VERDICT: REQUEST_CHANGES を出すが、それをそのまま
-          # 「コード上の指摘」として auto-fix (claude-code-action) に渡すと、
-          # CLI 障害でも無関係な自動修正が起動し再試行回数を消費してしまう
-          # （実機レビュー指摘）。このフラグが立っていれば auto-fix は
-          # スキップし、次の synchronize（または手動再実行）での再レビューに
-          # 委ねる。
-          GENERATION_FAILED=false
-          if printf '%s' "$LINE3" | grep -qE '^<!-- generation-failed: true -->$'; then
-            GENERATION_FAILED=true
-          fi
-
           {
             echo "eligible=$ELIGIBLE"
             echo "head_ref=$HEAD_REF"
             echo "labels=$LABELS"
             echo "sha_match=$SHA_MATCH"
             echo "reviewed_sha=$REVIEWED_SHA"
-            echo "generation_failed=$GENERATION_FAILED"
           } >> "$GITHUB_OUTPUT"
-          echo "sha_match=$SHA_MATCH reviewed_sha=$REVIEWED_SHA current_sha=$CURRENT_SHA generation_failed=$GENERATION_FAILED"
+          echo "sha_match=$SHA_MATCH reviewed_sha=$REVIEWED_SHA current_sha=$CURRENT_SHA"
 
       - name: Jenkins レビューコメント数カウント（ループ上限判定用）
         id: count
@@ -165,26 +142,11 @@ jobs:
         run: |
           set -euo pipefail
           # contains($marker) だと、投稿者が同じ Jenkins bot で本文に
-          # 攻撃者制御下の PR タイトル/生成レビューを含む Claude Code
-          # コメントが、たまたま（あるいは意図的に）Copilot マーカー
-          # 文字列を含んでいた場合に「Copilot の試行」として誤カウント
-          # され、give-up への到達を早めてしまう（実機レビュー指摘）。
-          # triage の if 条件と同じく startswith($marker) に統一し、
-          # 本文の先頭が実際に Copilot マーカーであるコメントだけを数える。
-          #
-          # <!-- generation-failed: true --> を含むコメント（CLI 障害・
-          # プロンプト超過による生成失敗）も除外する。含めたままだと CLI
-          # 障害だけで 5 回の再試行予算を消費し、その後に来る正当な
-          # レビューが早期に give-up へ到達してしまう（実機レビュー指摘）。
-          #
-          # 行全体一致 test("(?m)^...$") だけでは、本文中のどこであっても
-          # （PR タイトル経由だけでなく、外部入力である diff の影響を受ける
-          # Copilot 生成本文がこの行を引用・生成しただけでも）マッチして
-          # しまい、正常な試行までカウント対象外にできてしまう（実機
-          # レビュー指摘）。Jenkins 側はこのフィールドを必ず本文の3行目
-          # （1行目マーカー、2行目 reviewed-sha の直後）にのみ出力するため、
-          # split("\n") で本文を行に分割し、3行目（0-indexed [2]）だけを
-          # 対象にする（triage の gate ステップと同じ固定位置限定）。
+          # 攻撃者制御下の PR タイトル/生成レビューを含むコメントが、
+          # たまたま（あるいは意図的に）マーカー文字列を含んでいた場合に
+          # 誤カウントされ、give-up への到達を早めてしまう（実機レビュー
+          # 指摘）。triage の if 条件と同じく startswith($marker) に統一し、
+          # 本文の先頭が実際にマーカーであるコメントだけを数える。
           #
           # gh api --paginate は複数ページある場合、ページごとに独立した
           # JSON 配列をストリーム出力する。jq へそのまま渡すと
@@ -196,8 +158,7 @@ jobs:
             | jq --slurp --arg user "$BOT" --arg marker "$MARKER" \
                  '[.[][] | select(
                      .user.login == $user and
-                     (.body | startswith($marker)) and
-                     (((.body | split("\n")[2]) // "") | test("^<!-- generation-failed: true -->$") | not)
+                     (.body | startswith($marker))
                    )] | length')
           echo "retry_count=$COUNT" >> "$GITHUB_OUTPUT"
           echo "Jenkins コメント数: $COUNT (上限: ${{ env.MAX_RETRY }})"
@@ -243,7 +204,6 @@ jobs:
       needs.triage.outputs.eligible == 'true' &&
       needs.triage.outputs.verdict == 'REQUEST_CHANGES' &&
       needs.triage.outputs.sha_match == 'true' &&
-      needs.triage.outputs.generation_failed != 'true' &&
       needs.triage.outputs.retry_count != '' &&
       fromJSON(needs.triage.outputs.retry_count) < 5
     runs-on: ubuntu-latest
@@ -334,7 +294,6 @@ jobs:
       needs.triage.outputs.eligible == 'true' &&
       needs.triage.outputs.verdict == 'REQUEST_CHANGES' &&
       needs.triage.outputs.sha_match == 'true' &&
-      needs.triage.outputs.generation_failed != 'true' &&
       needs.triage.outputs.retry_count != '' &&
       fromJSON(needs.triage.outputs.retry_count) >= 5
     runs-on: ubuntu-latest
